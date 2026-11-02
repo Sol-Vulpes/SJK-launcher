@@ -341,7 +341,7 @@ fn parse_mutes(text: &str) -> Vec<(Option<String>, String)> {
 }
 
 /// A setting's value in a `config.cfg` (`seta name "value"`, quotes optional).
-fn setting(config: &str, wanted: &str) -> Option<String> {
+pub(crate) fn setting(config: &str, wanted: &str) -> Option<String> {
     config.lines().rev().find_map(|line| {
         let line = line.trim();
         let rest = ["seta ", "set ", "sets ", "setu "].iter().find_map(|command| line.strip_prefix(command))?;

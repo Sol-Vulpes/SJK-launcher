@@ -97,8 +97,8 @@ impl Game {
         self.executable_in(game_data).is_some_and(|path| path.exists())
     }
 
-    /// Start the game from `GameData`, as its own folder.
-    pub fn launch(self, game_data: &Path) -> std::io::Result<Child> {
+    /// Start the game from `GameData`, as its own folder, its output into `log`.
+    pub fn launch(self, game_data: &Path, log: Option<&std::fs::File>) -> std::io::Result<Child> {
         let program = self
             .executable_in(game_data)
             .ok_or_else(|| std::io::Error::other("no build for this computer"))?;
@@ -113,6 +113,11 @@ impl Game {
         if self == Self::Sjk {
             // SJK finds the game through these when started without arguments.
             command.env("JKA_GAME_DATA", game_data).env("JKR_GAME_DATA", game_data);
+        }
+        if let Some(log) = log
+            && let (Ok(out), Ok(err)) = (log.try_clone(), log.try_clone())
+        {
+            command.stdout(out).stderr(err);
         }
         command.spawn()
     }

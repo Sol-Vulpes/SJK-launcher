@@ -38,6 +38,18 @@ A small launcher for Jedi Academy that installs, updates and starts
 - **Tray and autostart:** closing the window keeps the launcher in the tray, and
   *Start with my computer* runs it hidden at login (`--minimized`). It checks GitHub
   every few hours and can install new versions by itself while the game is closed.
+  Only one runs at a time: starting it again brings the running one up (the SJK and
+  JoF launchers each have their own, on local ports 47613 and 47614).
+- **Game logs and crashes:** what a game started from here prints goes to
+  `logs/sjk.log` or `logs/jof.log` in the launcher's settings folder (the run before
+  as `*-previous.log`). If the game ends with an error code, at start or later, the
+  launcher comes up with the code in plain words, the last lines, and Copy / Open /
+  Play again. For Sol JK it also makes sure SJK's team gets a crash report right
+  away: it writes one into SJK's `crashes/` folder when the game could not (built
+  from SJK's own `running-<pid>.json` marker when it left one, so no duplicate
+  later), with chat and server messages left out, and sends what waits there with
+  the player's SJK identity. `cl_crashReports 0` or `cl_identity 0` in SJK keeps it
+  from sending.
 
 `GameData` is found in Steam's libraries, or picked with **Change…**. Settings live in
 the platform config folder (`%APPDATA%\SJK\Launcher\config\launcher.json` on Windows).

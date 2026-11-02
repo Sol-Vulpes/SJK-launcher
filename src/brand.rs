@@ -11,6 +11,8 @@ mod chosen {
     pub const NAME: &str = "SJK Launcher";
     /// The settings folder's application name (`%APPDATA%\SJK\<this>`).
     pub const FOLDER: &str = "Launcher";
+    /// The local port that keeps it to one launcher at a time (`instance.rs`).
+    pub const INSTANCE_PORT: u16 = 47613;
     pub const GAMES: [Game; 2] = [Game::Sjk, Game::Jof];
     pub const EMBLEM: &[u8] = include_bytes!("../assets/sjk-logo-512.png");
     pub const ICON: &[u8] = include_bytes!("../assets/launcher-icon.png");
@@ -21,6 +23,7 @@ mod chosen {
     use super::Game;
     pub const NAME: &str = "JoF Launcher";
     pub const FOLDER: &str = "JoF Launcher";
+    pub const INSTANCE_PORT: u16 = 47614;
     pub const GAMES: [Game; 2] = [Game::Jof, Game::Sjk];
     pub const EMBLEM: &[u8] = include_bytes!("../assets/jof/jof-emblem-512.png");
     pub const ICON: &[u8] = include_bytes!("../assets/jof/launcher-icon.png");

@@ -10,10 +10,12 @@ mod chat;
 mod config;
 mod content;
 mod state;
+mod game_log;
 mod gamedata;
 mod games;
 mod github;
 mod install;
+mod instance;
 mod pk3s;
 mod pk3scan;
 mod scans;
@@ -25,6 +27,10 @@ use std::sync::Arc;
 
 fn main() -> eframe::Result {
     let minimized = std::env::args().any(|arg| arg == system::MINIMIZED);
+    if !instance::claim(minimized) {
+        // Already running: it shows its window (unless this was the autostart).
+        return Ok(());
+    }
     let mut config = config::Config::load();
     if config.game_data.as_ref().is_none_or(|path| !gamedata::is_game_data(path)) {
         config.game_data = gamedata::detect().or(config.game_data);

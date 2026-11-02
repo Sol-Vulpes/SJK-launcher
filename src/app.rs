@@ -2,6 +2,7 @@
 //! and latest changes, and a dock with the content sources and the one gold
 //! action; then the content collections and the settings.
 
+mod crash_window;
 mod pk3_tab;
 
 use crate::content::{COLLECTIONS, Collection};
@@ -82,6 +83,10 @@ impl App {
         }
         core.hidden.store(minimized, Ordering::Relaxed);
         let tray = make_tray(&core);
+        {
+            let core = core.clone();
+            crate::instance::on_show(move || core.show());
+        }
         let selections = COLLECTIONS.map(|collection| collection.selection(&core.config()));
         let mut app = Self {
             tray,
@@ -149,12 +154,7 @@ fn make_tray(core: &Core) -> Option<Tray> {
                 if action == TrayAction::Chat {
                     core.open_chat.store(true, Ordering::Relaxed);
                 }
-                core.hidden.store(false, Ordering::Relaxed);
-                system::show_window(core.hwnd.load(Ordering::Relaxed));
-                core.ctx.send_viewport_cmd(egui::ViewportCommand::Visible(true));
-                core.ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(false));
-                core.ctx.send_viewport_cmd(egui::ViewportCommand::Focus);
-                core.ctx.request_repaint();
+                core.show();
             }
             TrayAction::Play(game) => {
                 let _ = core.play(game);
@@ -258,6 +258,7 @@ impl eframe::App for App {
             });
         self.advance_pending(ctx);
         self.pk3_confirm_window(ctx);
+        self.crash_window(ctx);
         window_edges(ctx);
         self.chat_window(ctx);
 

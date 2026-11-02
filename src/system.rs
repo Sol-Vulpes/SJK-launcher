@@ -109,6 +109,16 @@ impl Tray {
         let _ = self.icon.set_tooltip(Some(text));
     }
 }
+/// Open a file with the program the system gives its kind.
+pub fn open(path: &std::path::Path) {
+    #[cfg(windows)]
+    let _ = std::process::Command::new("explorer").arg(path).spawn();
+    #[cfg(target_os = "macos")]
+    let _ = std::process::Command::new("open").arg(path).spawn();
+    #[cfg(all(unix, not(target_os = "macos")))]
+    let _ = std::process::Command::new("xdg-open").arg(path).spawn();
+}
+
 /// Show the hidden window. A hidden eframe window gets no frames on Windows, so
 /// it is shown straight through the system rather than by a viewport command.
 #[cfg(windows)]

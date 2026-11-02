@@ -7,10 +7,9 @@ use crate::games::{GAMES, Game};
 use crate::github::{self, Release};
 use crate::install::Install;
 use std::path::PathBuf;
-use std::process::Child;
 use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 #[derive(Default)]
 pub struct Slot {
@@ -18,7 +17,8 @@ pub struct Slot {
     pub releases: Mutex<Option<Result<Vec<Release>, String>>>,
     pub checking: AtomicBool,
     pub install: Install,
-    child: Mutex<Option<Child>>,
+    /// The game started from here still runs (a thread waits on it).
+    running: AtomicBool,
 }
 
 /// Where a game stands against its newest release.
@@ -42,6 +42,8 @@ pub struct Inner {
     pub hidden: AtomicBool,
     /// The tray asked for the SJK chat window.
     pub open_chat: AtomicBool,
+    /// The last game that went down, for the crash window.
+    pub exit: Mutex<Option<crate::game_log::Exit>>,
 }
 
 #[derive(Clone)]
@@ -67,7 +69,19 @@ impl Core {
             hwnd: AtomicIsize::new(0),
             hidden: AtomicBool::new(false),
             open_chat: AtomicBool::new(false),
+            exit: Mutex::new(None),
         }))
+    }
+
+    /// Bring the window up: from the tray, a second start, or a game gone down. A
+    /// hidden eframe window gets no frames on Windows, so the system shows it.
+    pub fn show(&self) {
+        self.hidden.store(false, Ordering::Relaxed);
+        crate::system::show_window(self.hwnd.load(Ordering::Relaxed));
+        self.ctx.send_viewport_cmd(eframe::egui::ViewportCommand::Visible(true));
+        self.ctx.send_viewport_cmd(eframe::egui::ViewportCommand::Minimized(false));
+        self.ctx.send_viewport_cmd(eframe::egui::ViewportCommand::Focus);
+        self.ctx.request_repaint();
     }
 
     pub fn slot(&self, game: Game) -> &Slot {
@@ -168,15 +182,7 @@ impl Core {
     }
 
     pub fn running(&self, game: Game) -> bool {
-        let mut child = lock(&self.slot(game).child);
-        match child.as_mut().map(Child::try_wait) {
-            Some(Ok(None)) => true,
-            Some(_) => {
-                *child = None;
-                false
-            }
-            None => false,
-        }
+        self.slot(game).running.load(Ordering::Acquire)
     }
 
     pub fn play(&self, game: Game) -> Result<(), String> {
@@ -187,11 +193,41 @@ impl Core {
         if self.slot(game).install.running() {
             return Err(format!("{} is installing", game.name()));
         }
-        let child = game
-            .launch(&game_data)
+        let log = crate::game_log::create(game);
+        let mut child = game
+            .launch(&game_data, log.as_ref().map(|(file, _)| file))
             .map_err(|error| format!("cannot start {}: {error}", game.name()))?;
-        *lock(&self.slot(game).child) = Some(child);
+        let slot = self.slot(game);
+        slot.running.store(true, Ordering::Release);
+        let started = Instant::now();
+        let core = self.clone();
+        let log = log.map(|(_, path)| path);
+        std::thread::spawn(move || {
+            let status = child.wait();
+            core.slot(game).running.store(false, Ordering::Release);
+            if let (Ok(status), Some(log)) = (status, log)
+                && let Some(what) = crate::game_log::bad_exit(status)
+            {
+                core.went_down(game, child.id(), what, started.elapsed(), log, &game_data);
+            }
+            core.ctx.request_repaint();
+        });
         Ok(())
+    }
+
+    /// `game` (process `pid`) went down: report it for Sol JK, and show the window
+    /// with what happened.
+    fn went_down(&self, game: Game, pid: u32, what: String, ran: Duration, log: PathBuf, game_data: &std::path::Path) {
+        use crate::game_log::{self, Report};
+        let report = match game {
+            Game::Sjk => {
+                let build = self.config().installed.get(&game).map(|tag| game.version_of(tag)).unwrap_or_default();
+                game_log::report_sjk(&game_data.join("SJK"), pid, &what, ran, &game_log::report_output(&log), &build)
+            }
+            Game::Jof => Report::None,
+        };
+        *lock(&self.exit) = Some(game_log::exit(game, what, ran, log, report));
+        self.show();
     }
 
     /// The tray's tooltip: updates waiting, or what is installed.
