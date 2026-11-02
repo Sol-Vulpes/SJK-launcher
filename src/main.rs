@@ -20,6 +20,7 @@ mod instance;
 mod pk3s;
 mod pk3scan;
 mod scans;
+mod self_update;
 mod system;
 mod theme;
 
@@ -32,6 +33,7 @@ fn main() -> eframe::Result {
         // Already running: it shows its window (unless this was the autostart).
         return Ok(());
     }
+    self_update::clean_up();
     let mut config = config::Config::load();
     if config.game_data.as_ref().is_none_or(|path| !gamedata::is_game_data(path)) {
         config.game_data = gamedata::detect().or(config.game_data);

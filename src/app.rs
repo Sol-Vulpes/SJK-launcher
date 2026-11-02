@@ -427,6 +427,7 @@ impl App {
                 if self.core.game_data().is_none() {
                     ui.label(RichText::new("Choose Jedi Academy's GameData in Settings").color(BAD));
                 }
+                self.launcher_update(ui);
             });
         });
         if let Some((text, bad)) = self.message.clone() {
@@ -437,6 +438,28 @@ impl App {
                     self.message = None;
                 }
             });
+        }
+    }
+
+    /// A newer launcher: the link that installs it and restarts.
+    fn launcher_update(&mut self, ui: &mut egui::Ui) {
+        use crate::self_update::Phase;
+        let Some(release) = self.core.updater.available() else { return };
+        let version = release.tag_name.trim_start_matches('v');
+        match self.core.updater.phase() {
+            Phase::Updating => _ = ui.label(RichText::new(format!("Updating the launcher to {version}…")).color(DIM)),
+            phase => {
+                if let Phase::Failed(error) = phase {
+                    ui.label(RichText::new(format!("Launcher update: {error}")).color(BAD));
+                }
+                let idle = self.core.idle();
+                let link = ui
+                    .add_enabled(idle, egui::Link::new(RichText::new(format!("Launcher {version}: update and restart")).color(GOLD_BRIGHT)))
+                    .on_disabled_hover_text("After the game closes and installs finish");
+                if link.clicked() {
+                    self.core.update_launcher();
+                }
+            }
         }
     }
 
@@ -1584,7 +1607,7 @@ impl App {
             config.auto_start = !config.auto_start;
         }
         ui.checkbox(&mut config.close_to_tray, "Closing the window keeps the launcher in the tray");
-        ui.checkbox(&mut config.auto_update, "Install new versions by themselves (when the game is closed)");
+        ui.checkbox(&mut config.auto_update, "Install new versions by themselves, the launcher's too (when the game is closed)");
         ui.horizontal(|ui| {
             ui.label("Check for new versions every");
             ui.add(egui::DragValue::new(&mut config.check_hours).range(1..=48).suffix(" h"));
@@ -1659,6 +1682,15 @@ impl App {
         if let Some(folder) = crate::config::folder() {
             ui.label(RichText::new(format!("Settings: {}", folder.join("launcher.json").display())).color(DIM));
         }
+        ui.horizontal(|ui| {
+            ui.label(RichText::new(format!("{} {}", crate::brand::NAME, crate::self_update::current())).color(DIM));
+            if !crate::self_update::allowed() {
+                ui.label(RichText::new("(built from source: updates itself only from a release)").color(DIM));
+            } else if ui.link("Check for a new launcher").clicked() {
+                let core = self.core.clone();
+                std::thread::spawn(move || core.check_launcher());
+            }
+        });
 
         if format!("{config:?}") != format!("{before:?}") {
             let prereleases_changed = config.prereleases != before.prereleases;

@@ -27,6 +27,16 @@ fn address() -> SocketAddr {
 /// Whether this start goes on: true for the first launcher, false when one already
 /// runs (it was asked to show itself unless `minimized`).
 pub fn claim(minimized: bool) -> bool {
+    // Started by an update (`self_update.rs`): the old launcher is quitting, wait for its port.
+    if std::env::args().any(|arg| arg == crate::self_update::UPDATED) {
+        for _ in 0..40 {
+            if let Ok(listener) = TcpListener::bind(address()) {
+                let _ = std::thread::Builder::new().name("launcher-instance".into()).spawn(move || serve(listener));
+                return true;
+            }
+            std::thread::sleep(Duration::from_millis(250));
+        }
+    }
     match TcpListener::bind(address()) {
         Ok(listener) => {
             let _ = std::thread::Builder::new().name("launcher-instance".into()).spawn(move || serve(listener));

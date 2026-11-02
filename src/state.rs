@@ -46,6 +46,8 @@ pub struct Inner {
     pub exit: Mutex<Option<crate::game_log::Exit>>,
     /// Developer mode's build of Sol JK from source.
     pub build: crate::dev::Build,
+    /// A newer launcher, and its update.
+    pub updater: crate::self_update::Updater,
 }
 
 #[derive(Clone)]
@@ -73,6 +75,7 @@ impl Core {
             open_chat: AtomicBool::new(false),
             exit: Mutex::new(None),
             build: Default::default(),
+            updater: Default::default(),
         }))
     }
 
@@ -165,9 +168,38 @@ impl Core {
         std::thread::spawn(move || {
             loop {
                 core.check_all();
+                core.check_launcher();
                 let hours = core.config().check_hours.max(1);
                 std::thread::sleep(Duration::from_secs(u64::from(hours) * 3600));
             }
+        });
+    }
+
+    /// Look for a newer launcher (on the caller's thread), and install it by itself
+    /// when the player wants updates by themselves and nothing would be cut short.
+    pub fn check_launcher(&self) {
+        if !crate::self_update::allowed() {
+            return;
+        }
+        self.updater.check();
+        self.ctx.request_repaint();
+        if self.config().auto_update && self.updater.available().is_some() && self.idle() {
+            self.updater.apply(self.hidden.load(Ordering::Relaxed));
+            self.ctx.request_repaint();
+        }
+    }
+
+    /// No game runs from here and nothing installs or builds: the launcher may restart.
+    pub fn idle(&self) -> bool {
+        GAMES.iter().all(|&game| !self.running(game) && !self.slot(game).install.running()) && !self.build.running()
+    }
+
+    /// Update the launcher now, on its own thread.
+    pub fn update_launcher(&self) {
+        let core = self.clone();
+        std::thread::spawn(move || {
+            core.updater.apply(false);
+            core.ctx.request_repaint();
         });
     }
 

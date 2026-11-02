@@ -163,7 +163,7 @@ impl Install {
 }
 
 /// The archive's SHA-256 against GitHub's digest; an asset without one is checked by size only.
-fn verify(asset: &Asset, path: &Path) -> Result<(), String> {
+pub(crate) fn verify(asset: &Asset, path: &Path) -> Result<(), String> {
     let Some(expected) = asset.digest.as_deref().and_then(|digest| digest.strip_prefix("sha256:")) else {
         return Ok(());
     };

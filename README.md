@@ -50,6 +50,13 @@ A small launcher for Jedi Academy that installs, updates and starts
   later), with chat and server messages left out, and sends what waits there with
   the player's SJK identity. `cl_crashReports 0` or `cl_identity 0` in SJK keeps it
   from sending.
+- **Updates itself:** with every check it also looks at its own releases here. A
+  newer one shows *Launcher x.y.z: update and restart* in the header; with *Install
+  new versions by themselves* on, it does that alone once no game runs and nothing
+  installs. The new program is checked against GitHub's SHA-256, swapped in for the
+  running one (which becomes `<name>.old`, deleted at the next start) and started;
+  if anything fails the running launcher stays as it was. A launcher built from
+  source (debug, or run from a cargo `target*` folder) never updates itself.
 - **Developer mode** (Settings, for SJK's developers): builds Sol JK from a source
   checkout and plays that build, like a `play` script. The source folder is found by
   itself (`SJK_SOURCE`, beside the launcher's own source, then the usual clone places
