@@ -3,7 +3,7 @@ members = [".", "sith-cloud"]
 
 [package]
 name = "sjk-launcher"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2024"
 license = "GPL-2.0-only"
 description = "Installs, updates and starts SJK and JoF EternalJK, and fetches JoF content"
@@ -18,8 +18,8 @@ path = "src/main.rs"
 
 [dependencies]
 # SJK's own JoF content code: the same manifest, hosts, checks and folder as SJK's card.
-sjk-jof-content = { git = "https://github.com/Sol-Vulpes/SJK", tag = "sjk-v2026.1028.1" }
-sjk-identity = { git = "https://github.com/Sol-Vulpes/SJK", tag = "sjk-v2026.1028.1" }
+sjk-jof-content = { git = "https://github.com/Sol-Vulpes/SJK", tag = "sjk-v2026.1102.1" }
+sjk-identity = { git = "https://github.com/Sol-Vulpes/SJK", tag = "sjk-v2026.1102.1" }
 eframe = { version = "0.32", default-features = false, features = ["default_fonts", "glow", "wayland", "x11"] }
 tray-icon = "0.21"
 auto-launch = "0.5"
