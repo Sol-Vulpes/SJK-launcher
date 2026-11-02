@@ -2,6 +2,8 @@
 //! and latest changes, and a dock with the content sources and the one gold
 //! action; then the content collections and the settings.
 
+mod pk3_tab;
+
 use crate::content::{COLLECTIONS, Collection};
 use crate::games::{GAMES, Game};
 use crate::github::Release;
@@ -11,7 +13,7 @@ use crate::scans::{ScanState, Scanner};
 use crate::state::{Core, Standing};
 use crate::system::{self, Tray, TrayAction};
 use crate::chat::Status as ChatStatus;
-use crate::theme::{self, EMBER, GOLD, GOLD_BRIGHT, HOLO, MUTED, SPACE, WindowButton, display, strong};
+use crate::theme::{self, EMBER, GOLD, GOLD_BRIGHT, HOLO, MUTED, SPACE, WARN, WindowButton, display, strong};
 use eframe::egui::{self, Color32, Rect, RichText, Sense, Vec2};
 use sjk_jof_content::job::{Job, Phase as ContentPhase, Settings};
 use sjk_jof_content::{Asset, AssetState, Group, Plan, Selection, human_size};
@@ -29,6 +31,7 @@ const INSPECT_WIDTH: f32 = 420.0;
 enum Tab {
     Game(Game),
     Content(Collection),
+    Pk3s,
     Settings,
 }
 
@@ -62,6 +65,7 @@ pub struct App {
     /// Why the draft could not go, said under the field.
     chat_error: Option<String>,
     icon: Arc<egui::IconData>,
+    pk3: pk3_tab::Pk3Tab,
 }
 
 impl App {
@@ -81,7 +85,7 @@ impl App {
         let selections = COLLECTIONS.map(|collection| collection.selection(&core.config()));
         let mut app = Self {
             tray,
-            tab: Tab::Game(Game::Sjk),
+            tab: Tab::Game(GAMES[0]),
             emblem: theme::emblem(&cc.egui_ctx),
             picked: [None, None],
             play_after: [false, false],
@@ -100,6 +104,7 @@ impl App {
             chat_draft: String::new(),
             chat_error: None,
             icon: Arc::new(egui::IconData { rgba: system::icon_rgba(64), width: 64, height: 64 }),
+            pk3: Default::default(),
             core,
         };
         for collection in COLLECTIONS {
@@ -241,23 +246,28 @@ impl eframe::App for App {
                 .show(ctx, |ui| self.dock(ui, game, s));
         }
         self.inspect_panel(ctx);
+        self.pk3_panel(ctx);
         let margin = if on_game { 64.0 * s } else { 48.0 * s };
         egui::CentralPanel::default()
             .frame(clear.inner_margin(egui::Margin { left: margin as i8, right: margin as i8, top: 8, bottom: 16 }))
             .show(ctx, |ui| match self.tab {
                 Tab::Game(game) => self.game_page(ui, game, s),
                 Tab::Content(collection) => self.content_tab(ui, collection),
+                Tab::Pk3s => self.pk3_page(ui),
                 Tab::Settings => self.settings(ui),
             });
         self.advance_pending(ctx);
+        self.pk3_confirm_window(ctx);
         window_edges(ctx);
         self.chat_window(ctx);
 
-        let busy = GAMES.iter().any(|&game| self.core.slot(game).install.running()) || self.content.iter().any(Job::busy) || self.pending.is_some();
+        let busy = GAMES.iter().any(|&game| self.core.slot(game).install.running()) || self.content.iter().any(Job::busy) || self.pending.is_some() || self.pk3.busy();
         ctx.request_repaint_after(std::time::Duration::from_millis(if busy { 100 } else { 1000 }));
         #[cfg(debug_assertions)]
         {
             debug_shot(ctx, &mut self.tab);
+            // SJK_LAUNCHER_SEARCH=<text> searches the PK3s tab; SJK_LAUNCHER_PK3=<name> opens one there.
+            self.pk3_debug();
             // SJK_LAUNCHER_INSPECT=<file.pk3> opens that file's insides once the list is here.
             if let (Ok(name), None, Tab::Content(collection)) = (std::env::var("SJK_LAUNCHER_INSPECT"), self.inspect, self.tab)
                 && let Some(snapshot) = self.content[collection as usize].progress().snapshot
@@ -318,8 +328,9 @@ fn debug_shot(ctx: &egui::Context, tab: &mut Tab) {
             Ok("jof") => Tab::Game(Game::Jof),
             Ok("content") => Tab::Content(Collection::Jof),
             Ok("sith") => Tab::Content(Collection::Sith),
+            Ok("pk3s") => Tab::Pk3s,
             Ok("settings") => Tab::Settings,
-            _ => Tab::Game(Game::Sjk),
+            _ => Tab::Game(GAMES[0]),
         };
     }
     if time > wait && ctx.memory(|memory| memory.data.get_temp::<bool>(egui::Id::new("shot")).is_none()) {
@@ -377,6 +388,9 @@ impl App {
             let on_content = matches!(self.tab, Tab::Content(_));
             if theme::tab(ui, "Content", 22.0 * s, on_content).clicked() && !on_content {
                 self.tab = Tab::Content(Collection::Jof);
+            }
+            if theme::tab(ui, "PK3s", 22.0 * s, self.tab == Tab::Pk3s).clicked() {
+                self.tab = Tab::Pk3s;
             }
             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                 ui.spacing_mut().item_spacing.x = 4.0;
@@ -719,6 +733,7 @@ impl App {
                 let folder = crate::gamedata::normalise(&folder);
                 if crate::gamedata::is_game_data(&folder) {
                     self.core.edit(|config| config.game_data = Some(folder));
+                    self.pk3.forget();
                     for collection in COLLECTIONS {
                         self.refresh_content(collection);
                     }
@@ -1020,7 +1035,7 @@ impl App {
         });
         if inspected {
             let rect = row.response.rect.expand2(Vec2::new(8.0, 0.0));
-            ui.painter().set(lit, egui::Shape::rect_filled(rect, 4.0, Color32::from_rgba_unmultiplied(0xE8, 0xB8, 0x4A, 34)));
+            ui.painter().set(lit, egui::Shape::rect_filled(rect, 4.0, theme::gold(34)));
         }
         changed
     }
@@ -1073,7 +1088,7 @@ impl App {
         if failed > 0 {
             text.push_str(&format!(" · {failed} not read"));
         }
-        let colour = if danger > 0 { BAD } else if warning > 0 { GOLD } else { HOLO };
+        let colour = if danger > 0 { BAD } else if warning > 0 { WARN } else { HOLO };
         Some(RichText::new(text).color(colour))
     }
 
@@ -1278,30 +1293,7 @@ impl App {
     }
 
     fn report_view(&mut self, ui: &mut egui::Ui, report: &Report) {
-        let (verdict, colour) = match report.level() {
-            Some(Level::Danger) => ("Harmful: it can run code or damage your files", BAD),
-            Some(Level::Warning) => ("Look before using: it changes settings or carries unusual files", GOLD_BRIGHT),
-            _ => ("Clean: only game content", HOLO),
-        };
-        ui.label(strong(verdict, 16.0).color(colour));
-        if !report.findings.is_empty() {
-            ui.add_space(4.0);
-            egui::ScrollArea::vertical().id_salt("findings").max_height(150.0).show(ui, |ui| {
-                ui.spacing_mut().item_spacing.y = 6.0;
-                for finding in &report.findings {
-                    let (mark, colour) = level_mark(finding.level);
-                    let mut job = egui::text::LayoutJob::default();
-                    let style = ui.style().clone();
-                    let mut add = |text: RichText| text.append_to(&mut job, &style, egui::FontSelection::Default, egui::Align::Center);
-                    add(RichText::new(format!("{mark} ")).color(colour).size(14.0));
-                    if !finding.path.is_empty() {
-                        add(RichText::new(format!("{} ", finding.path)).monospace().size(13.0).color(theme::TEXT));
-                    }
-                    add(RichText::new(&finding.text).size(14.0).color(DIM));
-                    ui.add(egui::Label::new(job).wrap());
-                }
-            });
-        }
+        findings_view(ui, report);
         ui.add_space(14.0);
         ui.label(RichText::new("Files inside").size(13.0).color(DIM));
         ui.add(
@@ -1558,10 +1550,38 @@ enum Decision {
 
 const CLEAN: (&str, Color32) = ("✔ clean", HOLO);
 
+/// The scan's verdict and what it found, for the inspector and the PK3s tab.
+fn findings_view(ui: &mut egui::Ui, report: &Report) {
+    let (verdict, colour) = match report.level() {
+        Some(Level::Danger) => ("Harmful: it can run code or damage your files", BAD),
+        Some(Level::Warning) => ("Look before using: it changes settings or carries unusual files", WARN),
+        _ => ("Clean: only game content", HOLO),
+    };
+    ui.label(strong(verdict, 16.0).color(colour));
+    if !report.findings.is_empty() {
+        ui.add_space(4.0);
+        egui::ScrollArea::vertical().id_salt("findings").max_height(150.0).show(ui, |ui| {
+            ui.spacing_mut().item_spacing.y = 6.0;
+            for finding in &report.findings {
+                let (mark, colour) = level_mark(finding.level);
+                let mut job = egui::text::LayoutJob::default();
+                let style = ui.style().clone();
+                let mut add = |text: RichText| text.append_to(&mut job, &style, egui::FontSelection::Default, egui::Align::Center);
+                add(RichText::new(format!("{mark} ")).color(colour).size(14.0));
+                if !finding.path.is_empty() {
+                    add(RichText::new(format!("{} ", finding.path)).monospace().size(13.0).color(theme::TEXT));
+                }
+                add(RichText::new(&finding.text).size(14.0).color(DIM));
+                ui.add(egui::Label::new(job).wrap());
+            }
+        });
+    }
+}
+
 fn level_mark(level: Level) -> (&'static str, Color32) {
     match level {
         Level::Danger => ("■", BAD),
-        Level::Warning => ("!", GOLD_BRIGHT),
+        Level::Warning => ("!", WARN),
         Level::Info => ("i", DIM),
     }
 }
@@ -1569,7 +1589,7 @@ fn level_mark(level: Level) -> (&'static str, Color32) {
 fn level_badge(level: Level) -> (&'static str, Color32) {
     match level {
         Level::Danger => ("■ harmful", BAD),
-        Level::Warning => ("! warnings", GOLD_BRIGHT),
+        Level::Warning => ("! warnings", WARN),
         Level::Info => ("i notes", DIM),
     }
 }
@@ -1578,7 +1598,7 @@ fn level_badge(level: Level) -> (&'static str, Color32) {
 fn legend(ui: &mut egui::Ui) {
     let lines = [
         ("✔ Clean", HOLO, "only game content"),
-        ("! Warnings", GOLD_BRIGHT, "scripts, nested archives, risky console commands"),
+        ("! Warnings", WARN, "scripts, nested archives, risky console commands"),
         ("■ Harmful", BAD, "native code, escapes from the game folder, ZIP bombs: held back"),
     ];
     for (name, colour, meaning) in lines {

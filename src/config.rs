@@ -61,7 +61,7 @@ impl Default for Config {
 }
 
 pub fn folder() -> Option<PathBuf> {
-    directories::ProjectDirs::from("", "SJK", "Launcher").map(|dirs| dirs.config_dir().to_owned())
+    directories::ProjectDirs::from("", "SJK", crate::brand::FOLDER).map(|dirs| dirs.config_dir().to_owned())
 }
 
 fn file() -> Option<PathBuf> {

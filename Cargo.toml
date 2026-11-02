@@ -8,6 +8,10 @@ edition = "2024"
 license = "GPL-2.0-only"
 description = "Installs, updates and starts SJK and JoF EternalJK, and fetches JoF content"
 
+[features]
+# The JoF Launcher: the same launcher in the JoF clan's logo and colours (src/brand.rs).
+jof = []
+
 [[bin]]
 name = "sjk-launcher"
 path = "src/main.rs"

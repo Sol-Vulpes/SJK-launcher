@@ -11,7 +11,8 @@ pub enum Game {
     Jof,
 }
 
-pub const GAMES: [Game; 2] = [Game::Sjk, Game::Jof];
+/// In the launcher's order: its own game first (SJK, or JoF EternalJK for the JoF Launcher).
+pub const GAMES: [Game; 2] = crate::brand::GAMES;
 
 impl Game {
     pub fn name(self) -> &'static str {

@@ -8,7 +8,7 @@ pub const MINIMIZED: &str = "--minimized";
 fn autostart() -> Result<auto_launch::AutoLaunch, String> {
     let program = std::env::current_exe().map_err(|error| error.to_string())?;
     auto_launch::AutoLaunchBuilder::new()
-        .set_app_name("SJK Launcher")
+        .set_app_name(crate::brand::NAME)
         .set_app_path(&program.to_string_lossy())
         .set_args(&[MINIMIZED])
         .set_use_launch_agent(true)
@@ -22,10 +22,11 @@ pub fn set_autostart(on: bool) -> Result<(), String> {
     result.map_err(|error| error.to_string())
 }
 
-/// The launcher's icon (`assets/launcher-icon.png`, from `scripts/launcher_icon.py`):
+/// The launcher's icon (`assets/launcher-icon.png`, from `scripts/launcher_icon.py`; the JoF Launcher's
+/// from `scripts/jof_art.py`):
 /// a gold play mark in a gold ring on SJK's navy, `size` pixels square, RGBA.
 pub fn icon_rgba(size: u32) -> Vec<u8> {
-    let png = include_bytes!("../assets/launcher-icon.png");
+    let png = crate::brand::ICON;
     match image::load_from_memory_with_format(png, image::ImageFormat::Png) {
         Ok(icon) => image::imageops::resize(&icon.to_rgba8(), size, size, image::imageops::FilterType::Lanczos3).into_raw(),
         Err(_) => vec![0; (size * size * 4) as usize],
@@ -71,7 +72,7 @@ impl Tray {
         let icon = Icon::from_rgba(icon_rgba(32), 32, 32).map_err(|error| error.to_string())?;
         let tray = TrayIconBuilder::new()
             .with_menu(Box::new(menu))
-            .with_tooltip("SJK Launcher")
+            .with_tooltip(crate::brand::NAME)
             .with_icon(icon)
             .with_menu_on_left_click(false)
             .build()

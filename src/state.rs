@@ -196,7 +196,7 @@ impl Core {
 
     /// The tray's tooltip: updates waiting, or what is installed.
     pub fn summary(&self) -> String {
-        let mut lines = vec!["SJK Launcher".to_owned()];
+        let mut lines = vec![crate::brand::NAME.to_owned()];
         for game in GAMES {
             let line = match self.standing(game) {
                 Standing::Behind { latest, .. } => format!("{}: {} available", game.name(), game.version_of(&latest)),

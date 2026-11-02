@@ -10,19 +10,56 @@ use eframe::egui::{
 };
 use std::sync::Arc;
 
-pub const SPACE: Color32 = Color32::from_rgb(0x06, 0x0A, 0x14);
-pub const RAISED: Color32 = Color32::from_rgb(0x0A, 0x11, 0x22);
-pub const SKY: Color32 = Color32::from_rgb(0x0C, 0x18, 0x30);
-pub const HOLO: Color32 = Color32::from_rgb(0xA8, 0xCF, 0xFF);
-pub const GOLD: Color32 = Color32::from_rgb(0xE8, 0xB8, 0x4A);
-pub const GOLD_BRIGHT: Color32 = Color32::from_rgb(0xFF, 0xD9, 0x7A);
-pub const TEXT: Color32 = Color32::from_rgb(0xE2, 0xE9, 0xF6);
-pub const MUTED: Color32 = Color32::from_rgb(0xA9, 0xB5, 0xCB);
+// SJK: navy ground, holo blue lines, gold for the chosen and the main action.
+#[cfg(not(feature = "jof"))]
+mod palette {
+    use super::Color32;
+    pub const SPACE: Color32 = Color32::from_rgb(0x06, 0x0A, 0x14);
+    pub const RAISED: Color32 = Color32::from_rgb(0x0A, 0x11, 0x22);
+    pub const SKY: Color32 = Color32::from_rgb(0x0C, 0x18, 0x30);
+    pub const HOLO: Color32 = Color32::from_rgb(0xA8, 0xCF, 0xFF);
+    pub const GOLD: Color32 = Color32::from_rgb(0xE8, 0xB8, 0x4A);
+    pub const GOLD_BRIGHT: Color32 = Color32::from_rgb(0xFF, 0xD9, 0x7A);
+    pub const TEXT: Color32 = Color32::from_rgb(0xE2, 0xE9, 0xF6);
+    pub const MUTED: Color32 = Color32::from_rgb(0xA9, 0xB5, 0xCB);
+}
+
+// JoF: the clan logo's green on a near-black green ground, mint lines. The names
+// stay SJK's (GOLD is the chosen and the main action, HOLO the line-work).
+#[cfg(feature = "jof")]
+mod palette {
+    use super::Color32;
+    pub const SPACE: Color32 = Color32::from_rgb(0x04, 0x0B, 0x07);
+    pub const RAISED: Color32 = Color32::from_rgb(0x09, 0x16, 0x0E);
+    pub const SKY: Color32 = Color32::from_rgb(0x0A, 0x24, 0x14);
+    pub const HOLO: Color32 = Color32::from_rgb(0x9C, 0xE6, 0xB4);
+    pub const GOLD: Color32 = Color32::from_rgb(0x22, 0xC8, 0x38);
+    pub const GOLD_BRIGHT: Color32 = Color32::from_rgb(0x74, 0xF2, 0x86);
+    pub const TEXT: Color32 = Color32::from_rgb(0xE3, 0xF3, 0xE7);
+    pub const MUTED: Color32 = Color32::from_rgb(0xA2, 0xBC, 0xA9);
+}
+
+pub use palette::*;
 pub const EMBER: Color32 = Color32::from_rgb(0xFF, 0x7A, 0x3D);
+/// The scan's warnings: amber in both looks (the JoF one's gold is green).
+pub const WARN: Color32 = Color32::from_rgb(0xFF, 0xD9, 0x7A);
+
+fn with_alpha(colour: Color32, alpha: u8) -> Color32 {
+    Color32::from_rgba_unmultiplied(colour.r(), colour.g(), colour.b(), alpha)
+}
+
+/// The chosen colour at a strength, for fills.
+pub fn gold(alpha: u8) -> Color32 {
+    with_alpha(GOLD, alpha)
+}
+
+pub fn ember(alpha: u8) -> Color32 {
+    with_alpha(EMBER, alpha)
+}
 
 /// Holo at a strength, for lines.
 pub fn holo(alpha: u8) -> Color32 {
-    Color32::from_rgba_unmultiplied(0xA8, 0xCF, 0xFF, alpha)
+    with_alpha(HOLO, alpha)
 }
 
 fn display_family() -> FontFamily {
@@ -70,7 +107,7 @@ pub fn install(ctx: &egui::Context) {
     visuals.extreme_bg_color = Color32::from_rgb(0x04, 0x07, 0x10);
     visuals.faint_bg_color = RAISED;
     visuals.hyperlink_color = GOLD_BRIGHT;
-    visuals.selection.bg_fill = Color32::from_rgba_unmultiplied(0xE8, 0xB8, 0x4A, 70);
+    visuals.selection.bg_fill = gold(70);
     visuals.selection.stroke = Stroke::new(1.0, GOLD_BRIGHT);
     visuals.window_stroke = Stroke::new(1.0, holo(90));
     visuals.window_corner_radius = 8.into();
@@ -82,7 +119,7 @@ pub fn install(ctx: &egui::Context) {
     for (state, fill, stroke) in [
         (&mut widgets.inactive, holo(12), holo(110)),
         (&mut widgets.hovered, holo(28), GOLD),
-        (&mut widgets.active, Color32::from_rgba_unmultiplied(0xE8, 0xB8, 0x4A, 60), GOLD_BRIGHT),
+        (&mut widgets.active, gold(60), GOLD_BRIGHT),
         (&mut widgets.open, holo(28), GOLD),
     ] {
         state.weak_bg_fill = fill;
@@ -107,7 +144,7 @@ pub fn install(ctx: &egui::Context) {
 
 /// SJK's emblem, decoded once.
 pub fn emblem(ctx: &egui::Context) -> Option<TextureHandle> {
-    let image = image::load_from_memory_with_format(include_bytes!("../assets/sjk-logo-512.png"), image::ImageFormat::Png).ok()?;
+    let image = image::load_from_memory_with_format(crate::brand::EMBLEM, image::ImageFormat::Png).ok()?;
     let rgba = image.to_rgba8();
     let size = [rgba.width() as usize, rgba.height() as usize];
     let pixels = egui::ColorImage::from_rgba_unmultiplied(size, rgba.as_raw());
@@ -161,7 +198,7 @@ pub fn backdrop(painter: &Painter, rect: Rect, floor: bool, emblem: Option<&Text
     // The floor fades into the ground towards the viewer, under the dock.
     let fade = Rect::from_min_max(Pos2::new(rect.left(), horizon + 1.0), rect.right_bottom());
     let mut mesh = Mesh::default();
-    let clear = Color32::from_rgba_unmultiplied(0x06, 0x0A, 0x14, 0);
+    let clear = with_alpha(SPACE, 0);
     let mid = Pos2::new(fade.right(), fade.top() + fade.height() * 0.8);
     mesh.colored_vertex(fade.left_top(), clear);
     mesh.colored_vertex(fade.right_top(), clear);
@@ -212,7 +249,7 @@ pub fn window_button(ui: &mut egui::Ui, kind: WindowButton, size: f32) -> Respon
     let (rect, response) = ui.allocate_exact_size(Vec2::splat(size), Sense::click());
     let hovered = response.hovered();
     if hovered {
-        let fill = if kind == WindowButton::Close { Color32::from_rgba_unmultiplied(0xFF, 0x7A, 0x3D, 190) } else { holo(28) };
+        let fill = if kind == WindowButton::Close { ember(190) } else { holo(28) };
         ui.painter().rect_filled(rect, 4.0, fill);
     }
     let colour = match (hovered, kind) {

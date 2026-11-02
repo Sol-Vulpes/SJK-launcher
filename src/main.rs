@@ -5,6 +5,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 mod app;
+mod brand;
 mod chat;
 mod config;
 mod content;
@@ -13,6 +14,7 @@ mod gamedata;
 mod games;
 mod github;
 mod install;
+mod pk3s;
 mod pk3scan;
 mod scans;
 mod system;
@@ -38,7 +40,7 @@ fn main() -> eframe::Result {
     };
     let options = eframe::NativeOptions {
         viewport: egui::ViewportBuilder::default()
-            .with_title("SJK Launcher")
+            .with_title(brand::NAME)
             .with_inner_size([1200.0, 760.0])
             .with_min_inner_size([960.0, 620.0])
             // The header is the title bar (app::App::header).
@@ -48,7 +50,7 @@ fn main() -> eframe::Result {
         ..Default::default()
     };
     eframe::run_native(
-        "SJK Launcher",
+        brand::NAME,
         options,
         Box::new(move |cc| {
             let core = state::Core::new(cc.egui_ctx.clone(), config);

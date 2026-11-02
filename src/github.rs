@@ -36,8 +36,13 @@ pub struct Asset {
 
 impl Release {
     /// `2026-10-27` from `2026-10-27T00:23:56Z`.
-    pub fn date(&self) -> &str {
-        self.published_at.as_deref().map_or("", |at| at.get(..10).unwrap_or(at))
+    /// The day it came out, `dd/mm/yyyy`.
+    pub fn date(&self) -> String {
+        let at = self.published_at.as_deref().unwrap_or_default();
+        match (at.get(..4), at.get(5..7), at.get(8..10)) {
+            (Some(year), Some(month), Some(day)) => format!("{day}/{month}/{year}"),
+            _ => at.to_owned(),
+        }
     }
 
     /// The first changes the notes list (`* Change by @someone in <link>`), plain.

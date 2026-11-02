@@ -26,6 +26,15 @@ A small launcher for Jedi Academy that installs, updates and starts
   the launcher runs, since the game reads it then. Messages go out as
   `SJKLauncher/<version>`, which the hub marks `launcher` so SJK shows the launcher's
   icon beside them.
+- **PK3s:** every PK3 in `GameData` (each mod folder, SJK's folder and its JoF
+  content), searched by name and by the files inside them: type `kyle` and see every
+  PK3 with a file matching it. Each shows what it holds (maps, player models, sabers,
+  sounds…), its safety scan, and which PK3s of its folder it replaces files of (the
+  game uses the copy in the PK3 last by name). Turn PK3s off (renamed to
+  `name.pk3.off`, which the games skip, and back with one click) or delete them, one
+  or all those ticked. A file JoF content or the Sith cloud put there is unchosen there
+  too, so it doesn't come back. The games' own files (Jedi Academy's `assets0-3`,
+  SJK's and EternalJK's folders) are listed but stay.
 - **Tray and autostart:** closing the window keeps the launcher in the tray, and
   *Start with my computer* runs it hidden at login (`--minimized`). It checks GitHub
   every few hours and can install new versions by itself while the game is closed.
@@ -33,10 +42,18 @@ A small launcher for Jedi Academy that installs, updates and starts
 `GameData` is found in Steam's libraries, or picked with **Change…**. Settings live in
 the platform config folder (`%APPDATA%\SJK\Launcher\config\launcher.json` on Windows).
 
+## The JoF Launcher
+
+The same launcher for the Jedi of Freedom clan, built with `--features jof`
+(`src/brand.rs`): the clan's green J o F (drawn from its shapes by
+`python scripts/jof_art.py assets/jof`), a green look, JoF EternalJK first, and its own
+settings folder (`%APPDATA%\SJK\JoF Launcher`), tray entry and autostart, so both can be
+installed side by side. It packs as `jof-launcher-<os>-<arch>`.
+
 ## Build
 
 ```
-./build.ps1          # Windows: build and pack into dist/
+./build.ps1          # Windows: build and pack both launchers into dist/
 sh build.sh          # Linux and macOS
 ```
 

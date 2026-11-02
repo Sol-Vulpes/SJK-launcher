@@ -76,7 +76,8 @@ jobs:
         run: |
           ls dist
           ls dist/sjk-launcher-windows-*.zip dist/sjk-launcher-linux-*.tar.gz
-          ls dist/sjk-launcher-macos-* 2>/dev/null || echo "::warning::No macOS build; releasing without it"
+          ls dist/jof-launcher-windows-*.zip dist/jof-launcher-linux-*.tar.gz
+          ls dist/sjk-launcher-macos-* dist/jof-launcher-macos-* 2>/dev/null || echo "::warning::No macOS build; releasing without it"
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
