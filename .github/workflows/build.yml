@@ -86,4 +86,4 @@ jobs:
           pre=""
           case "$TAG" in *-*) pre="--prerelease" ;; esac
           gh release create "$TAG" dist/* --target "$GITHUB_SHA" \
-            --title "SJK Launcher $TAG" --generate-notes $pre
+            --title "SJK Launcher and JoF Launcher $TAG" --generate-notes $pre
