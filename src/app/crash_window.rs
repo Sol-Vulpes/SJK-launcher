@@ -72,8 +72,11 @@ impl App {
         if close || again {
             *self.core.exit.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = None;
         }
-        if again && let Err(error) = self.core.play(exit.game) {
-            self.say(error, true);
+        if again {
+            let start = if exit.dev { self.core.build_and_play() } else { self.core.play(exit.game) };
+            if let Err(error) = start {
+                self.say(error, true);
+            }
         }
     }
 }

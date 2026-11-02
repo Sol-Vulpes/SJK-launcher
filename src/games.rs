@@ -97,19 +97,17 @@ impl Game {
         self.executable_in(game_data).is_some_and(|path| path.exists())
     }
 
-    /// Start the game from `GameData`, as its own folder, its output into `log`.
-    pub fn launch(self, game_data: &Path, log: Option<&std::fs::File>) -> std::io::Result<Child> {
-        let program = self
-            .executable_in(game_data)
-            .ok_or_else(|| std::io::Error::other("no build for this computer"))?;
+    /// Start `program` from `folder` for `game_data`: a release from `GameData`, or a
+    /// developer's own build from its source folder (`dev.rs`).
+    pub fn start(self, program: &Path, folder: &Path, game_data: &Path, log: Option<&std::fs::File>) -> std::io::Result<Child> {
         let mut command = if program.extension().is_some_and(|ext| ext == "app") {
             let mut open = Command::new("open");
-            open.arg("-W").arg(&program);
+            open.arg("-W").arg(program);
             open
         } else {
-            Command::new(&program)
+            Command::new(program)
         };
-        command.current_dir(game_data);
+        command.current_dir(folder);
         if self == Self::Sjk {
             // SJK finds the game through these when started without arguments.
             command.env("JKA_GAME_DATA", game_data).env("JKR_GAME_DATA", game_data);

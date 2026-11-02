@@ -67,6 +67,9 @@ pub struct App {
     chat_error: Option<String>,
     icon: Arc<egui::IconData>,
     pk3: pk3_tab::Pk3Tab,
+    /// Developer mode's branch list, read when Sol JK's page first shows it.
+    branches: crate::dev::Branches,
+    branches_read: bool,
 }
 
 impl App {
@@ -110,6 +113,8 @@ impl App {
             chat_error: None,
             icon: Arc::new(egui::IconData { rgba: system::icon_rgba(64), width: 64, height: 64 }),
             pk3: Default::default(),
+            branches: Default::default(),
+            branches_read: false,
             core,
         };
         for collection in COLLECTIONS {
@@ -254,7 +259,9 @@ impl eframe::App for App {
                 Tab::Game(game) => self.game_page(ui, game, s),
                 Tab::Content(collection) => self.content_tab(ui, collection),
                 Tab::Pk3s => self.pk3_page(ui),
-                Tab::Settings => self.settings(ui),
+                Tab::Settings => {
+                    egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| self.settings(ui));
+                }
             });
         self.advance_pending(ctx);
         self.pk3_confirm_window(ctx);
@@ -262,7 +269,7 @@ impl eframe::App for App {
         window_edges(ctx);
         self.chat_window(ctx);
 
-        let busy = GAMES.iter().any(|&game| self.core.slot(game).install.running()) || self.content.iter().any(Job::busy) || self.pending.is_some() || self.pk3.busy();
+        let busy = GAMES.iter().any(|&game| self.core.slot(game).install.running()) || self.content.iter().any(Job::busy) || self.pending.is_some() || self.pk3.busy() || self.core.build.running();
         ctx.request_repaint_after(std::time::Duration::from_millis(if busy { 100 } else { 1000 }));
         #[cfg(debug_assertions)]
         {
@@ -550,6 +557,92 @@ impl App {
         }
     }
 
+    /// Developer mode on Sol JK's page: a branch of the source, built and started.
+    fn dev_block(&mut self, ui: &mut egui::Ui, s: f32) {
+        use crate::dev::Phase as Build;
+        let core = self.core.clone();
+        let (source, branch) = {
+            let config = core.config();
+            (config.dev_source.clone().filter(|source| crate::dev::is_source(source)), config.dev_branch.clone())
+        };
+        ui.label(strong("Developer build", 15.0 * s).color(HOLO));
+        let Some(source) = source else {
+            if ui.link("Choose SJK's source folder in Settings").clicked() {
+                self.tab = Tab::Settings;
+            }
+            return;
+        };
+        if !self.branches_read {
+            self.branches_read = true;
+            let ctx = ui.ctx().clone();
+            self.branches.refresh(source.clone(), false, move || ctx.request_repaint());
+        }
+        let current = crate::dev::current_branch(&source);
+        let phase = core.build.phase();
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 12.0;
+            let shown = match (&branch, &current) {
+                (Some(branch), _) => branch.clone(),
+                (None, Some(current)) => format!("{current} (checked out)"),
+                (None, None) => "the source folder (detached)".into(),
+            };
+            ui.add_enabled_ui(!phase.running(), |ui| {
+                ui.menu_button(RichText::new(format!("Branch: {shown}")).color(GOLD_BRIGHT), |ui| {
+                    ui.set_min_width(320.0);
+                    egui::ScrollArea::vertical().max_height(360.0).show(ui, |ui| {
+                        let checked_out = current.as_deref().map_or("checked out".into(), |name| format!("{name} (checked out)"));
+                        if ui.selectable_label(branch.is_none(), checked_out).clicked() {
+                            core.edit(|config| config.dev_branch = None);
+                            ui.close();
+                        }
+                        for name in self.branches.get() {
+                            if current.as_deref() == Some(name.as_str()) {
+                                continue;
+                            }
+                            if ui.selectable_label(branch.as_deref() == Some(name.as_str()), &name).clicked() {
+                                core.edit(|config| config.dev_branch = Some(name.clone()));
+                                ui.close();
+                            }
+                        }
+                    });
+                });
+            });
+            if self.branches.busy() {
+                ui.label(RichText::new("fetching…").color(DIM));
+            } else if ui.link("Fetch").on_hover_text("Fetch origin and read the branches again").clicked() {
+                let ctx = ui.ctx().clone();
+                self.branches.refresh(source.clone(), true, move || ctx.request_repaint());
+            }
+        });
+        ui.horizontal(|ui| {
+            ui.spacing_mut().item_spacing.x = 12.0;
+            if phase.running() {
+                if ui.button("Stop build").clicked() {
+                    core.build.cancel();
+                }
+            } else if ui.add_enabled(!core.running(Game::Sjk), egui::Button::new("Build and play")).clicked()
+                && let Err(error) = core.build_and_play()
+            {
+                self.say(error, true);
+            }
+            match &phase {
+                Build::Idle => {}
+                Build::Preparing(text) => _ = ui.label(RichText::new(text).color(DIM)),
+                Build::Building { line, done } => _ = ui.label(RichText::new(format!("{line}   ({done} crates)")).color(DIM)),
+                Build::Started(text) => _ = ui.label(RichText::new(text).color(GOLD)),
+                Build::Failed(error) => {
+                    ui.add(egui::Label::new(RichText::new(error).color(BAD)).truncate());
+                }
+            }
+            if let Some(log) = crate::config::folder().map(|folder| folder.join("logs").join("sjk-build.log"))
+                && log.is_file()
+                && ui.link("Build log").clicked()
+            {
+                ui.ctx().open_url(egui::OpenUrl::new_tab(format!("file:///{}", log.display())));
+            }
+        });
+    }
+
     /// What the gold button does now, its words, and the quieter choice beside it.
     fn action(&self, game: Game) -> (Action, String, Option<(String, Action)>) {
         let core = &self.core;
@@ -604,6 +697,10 @@ impl App {
 
     /// The bottom of a game's page: the content sources, then the one action.
     fn dock(&mut self, ui: &mut egui::Ui, game: Game, s: f32) {
+        if game == Game::Sjk && self.core.config().dev_mode {
+            self.dev_block(ui, s);
+            ui.add_space(14.0 * s);
+        }
         let phase = self.core.slot(game).install.phase();
         match &phase {
             Phase::Failed(error) => {
@@ -1519,6 +1616,44 @@ impl App {
                 config.sith_url.clear();
             }
         });
+
+        ui.add_space(8.0);
+        theme::rule(ui);
+        ui.add_space(8.0);
+        ui.heading("Developer");
+        if ui.checkbox(&mut config.dev_mode, "Developer mode: build Sol JK from its source and play that build").changed()
+            && config.dev_mode
+            && config.dev_source.as_deref().is_none_or(|source| !crate::dev::is_source(source))
+        {
+            config.dev_source = crate::dev::detect().or(config.dev_source.take());
+        }
+        if config.dev_mode {
+            ui.horizontal(|ui| {
+                ui.label("Source folder");
+                match &config.dev_source {
+                    Some(source) if crate::dev::is_source(source) => _ = ui.label(RichText::new(source.display().to_string()).color(GOLD)),
+                    Some(source) => _ = ui.label(RichText::new(format!("{} (not SJK's source)", source.display())).color(BAD)),
+                    None => _ = ui.label(RichText::new("not found").color(BAD)),
+                }
+                if ui.button("Change…").clicked()
+                    && let Some(folder) = rfd::FileDialog::new().set_title("SJK's source folder (a clone of SJK)").pick_folder()
+                {
+                    config.dev_source = Some(folder);
+                    config.dev_branch = None;
+                    self.branches_read = false;
+                }
+                if ui.small_button("Find").clicked()
+                    && let Some(found) = crate::dev::detect()
+                {
+                    config.dev_source = Some(found);
+                    self.branches_read = false;
+                }
+            });
+            ui.label(
+                RichText::new("Its checked-out branch builds in place; other branches build in <source>-wt/test. Needs git and Rust.")
+                    .color(DIM),
+            );
+        }
 
         ui.add_space(8.0);
         if let Some(folder) = crate::config::folder() {

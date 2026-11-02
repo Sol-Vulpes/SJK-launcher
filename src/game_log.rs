@@ -135,6 +135,8 @@ pub struct Exit {
     pub log: PathBuf,
     pub tail: String,
     pub report: Report,
+    /// A developer's build (`dev.rs`): playing again builds and starts it again.
+    pub dev: bool,
 }
 
 /// After `game` (process `pid`) went down with `what`: the crash report for SJK's
@@ -205,7 +207,7 @@ fn launcher_report(dir: &Path, pid: u32, what: &str, ran: Duration, output: &str
 /// Everything known after `game` went down.
 pub fn exit(game: Game, what: String, ran: Duration, log: PathBuf, report: Report) -> Exit {
     let tail = tail(&log, SHOWN_LINES);
-    Exit { game, what, ran, log, tail, report }
+    Exit { game, what, ran, log, tail, report, dev: false }
 }
 
 /// The output a report carries: its last lines without what other players said.

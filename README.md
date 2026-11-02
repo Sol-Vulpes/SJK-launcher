@@ -50,6 +50,18 @@ A small launcher for Jedi Academy that installs, updates and starts
   later), with chat and server messages left out, and sends what waits there with
   the player's SJK identity. `cl_crashReports 0` or `cl_identity 0` in SJK keeps it
   from sending.
+- **Developer mode** (Settings, for SJK's developers): builds Sol JK from a source
+  checkout and plays that build, like a `play` script. The source folder is found by
+  itself (`SJK_SOURCE`, beside the launcher's own source, then the usual clone places
+  such as `~/Git/SJK` or `X:\Git\SJK`) or picked by hand. Sol JK's page then shows
+  *Developer build*: pick a branch (local ones, then `origin`'s; *Fetch* updates them)
+  and **Build and play** runs `cargo build --release -p sjk-viewer -p sjk-dedicated`
+  and starts the client from that folder with `GameData` set. The checked-out branch
+  builds in place; any other builds in `<source>-wt/test`, checked out detached and
+  forced. Each folder keeps its own `target`. Cargo's output goes to
+  `logs/sjk-build.log`. A developer's build that goes down gets the crash window but
+  no launcher crash report (SJK sends its own, with the right build). Needs git and
+  Rust on `PATH`.
 
 `GameData` is found in Steam's libraries, or picked with **Change…**. Settings live in
 the platform config folder (`%APPDATA%\SJK\Launcher\config\launcher.json` on Windows).

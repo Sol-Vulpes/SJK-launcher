@@ -34,6 +34,13 @@ pub struct Config {
     pub sith_files: String,
     /// MD5s of PK3s the player chose to download although the scan found danger.
     pub trusted: std::collections::BTreeSet<String>,
+    /// Developer mode: Sol JK's page also builds and starts a branch of SJK's source
+    /// (`dev.rs`).
+    pub dev_mode: bool,
+    /// The SJK source checkout developer mode builds from.
+    pub dev_source: Option<PathBuf>,
+    /// The branch it builds; `None` is whatever the source folder has checked out.
+    pub dev_branch: Option<String>,
 }
 
 /// The server written in as the default before the hub named it; a saved config holding
@@ -56,6 +63,9 @@ impl Default for Config {
             sith_groups: sjk_jof_content::plan::DEFAULT.into(),
             sith_files: String::new(),
             trusted: Default::default(),
+            dev_mode: false,
+            dev_source: None,
+            dev_branch: None,
         }
     }
 }

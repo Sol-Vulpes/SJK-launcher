@@ -44,6 +44,8 @@ pub struct Inner {
     pub open_chat: AtomicBool,
     /// The last game that went down, for the crash window.
     pub exit: Mutex<Option<crate::game_log::Exit>>,
+    /// Developer mode's build of Sol JK from source.
+    pub build: crate::dev::Build,
 }
 
 #[derive(Clone)]
@@ -70,6 +72,7 @@ impl Core {
             hidden: AtomicBool::new(false),
             open_chat: AtomicBool::new(false),
             exit: Mutex::new(None),
+            build: Default::default(),
         }))
     }
 
@@ -193,9 +196,42 @@ impl Core {
         if self.slot(game).install.running() {
             return Err(format!("{} is installing", game.name()));
         }
+        let program = game.executable_in(&game_data).ok_or("no build for this computer")?;
+        self.run(game, &program, &game_data, game_data.clone(), false)
+    }
+
+    /// Developer mode: build the picked branch of SJK's source, then start it.
+    pub fn build_and_play(&self) -> Result<(), String> {
+        let game = Game::Sjk;
+        let (source, branch) = {
+            let config = self.config();
+            (config.dev_source.clone(), config.dev_branch.clone())
+        };
+        let source = source.filter(|source| crate::dev::is_source(source)).ok_or("choose SJK's source folder in Settings first")?;
+        let game_data = self.game_data().ok_or("choose the GameData folder first")?;
+        if self.running(game) {
+            return Err(format!("{} is running", game.name()));
+        }
+        let ctx = self.ctx.clone();
+        let core = self.clone();
+        self.build.start(
+            source,
+            branch,
+            move || ctx.request_repaint(),
+            move |built| {
+                core.run(game, &built.client, &built.folder, game_data, true)?;
+                Ok(format!("Running the build of {}", built.label))
+            },
+        );
+        Ok(())
+    }
+
+    /// Start `program` from `folder` and watch it; `dev` builds send no crash
+    /// report of the launcher's (SJK's own reports still go, with the right build).
+    fn run(&self, game: Game, program: &std::path::Path, folder: &std::path::Path, game_data: PathBuf, dev: bool) -> Result<(), String> {
         let log = crate::game_log::create(game);
         let mut child = game
-            .launch(&game_data, log.as_ref().map(|(file, _)| file))
+            .start(program, folder, &game_data, log.as_ref().map(|(file, _)| file))
             .map_err(|error| format!("cannot start {}: {error}", game.name()))?;
         let slot = self.slot(game);
         slot.running.store(true, Ordering::Release);
@@ -205,10 +241,15 @@ impl Core {
         std::thread::spawn(move || {
             let status = child.wait();
             core.slot(game).running.store(false, Ordering::Release);
+            if dev {
+                core.build.clear();
+            }
             if let (Ok(status), Some(log)) = (status, log)
                 && let Some(what) = crate::game_log::bad_exit(status)
             {
-                core.went_down(game, child.id(), what, started.elapsed(), log, &game_data);
+                // A developer's build leaves reports to SJK itself, which knows its build.
+                let report_into = (!dev).then(|| game_data.join("SJK"));
+                core.went_down(game, child.id(), what, started.elapsed(), log, report_into.as_deref());
             }
             core.ctx.request_repaint();
         });
@@ -216,17 +257,19 @@ impl Core {
     }
 
     /// `game` (process `pid`) went down: report it for Sol JK, and show the window
-    /// with what happened.
-    fn went_down(&self, game: Game, pid: u32, what: String, ran: Duration, log: PathBuf, game_data: &std::path::Path) {
+    /// with what happened. `sjk` is SJK's folder for the report, `None` for no report.
+    fn went_down(&self, game: Game, pid: u32, what: String, ran: Duration, log: PathBuf, sjk: Option<&std::path::Path>) {
         use crate::game_log::{self, Report};
-        let report = match game {
-            Game::Sjk => {
+        let report = match (game, sjk) {
+            (Game::Sjk, Some(sjk)) => {
                 let build = self.config().installed.get(&game).map(|tag| game.version_of(tag)).unwrap_or_default();
-                game_log::report_sjk(&game_data.join("SJK"), pid, &what, ran, &game_log::report_output(&log), &build)
+                game_log::report_sjk(sjk, pid, &what, ran, &game_log::report_output(&log), &build)
             }
-            Game::Jof => Report::None,
+            _ => Report::None,
         };
-        *lock(&self.exit) = Some(game_log::exit(game, what, ran, log, report));
+        let mut exit = game_log::exit(game, what, ran, log, report);
+        exit.dev = game == Game::Sjk && sjk.is_none();
+        *lock(&self.exit) = Some(exit);
         self.show();
     }
 

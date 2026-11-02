@@ -9,6 +9,7 @@ mod brand;
 mod chat;
 mod config;
 mod content;
+mod dev;
 mod state;
 mod game_log;
 mod gamedata;
