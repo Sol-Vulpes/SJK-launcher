@@ -4,6 +4,7 @@
 
 mod crash_window;
 mod doctor_tab;
+mod tools_tab;
 mod pk3_tab;
 
 use crate::content::{COLLECTIONS, Collection};
@@ -36,6 +37,7 @@ enum Tab {
     Pk3s,
     Settings,
     Doctor,
+    Tools,
 }
 
 pub struct App {
@@ -269,6 +271,9 @@ impl eframe::App for App {
                 Tab::Doctor => {
                     egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| self.doctor_page(ui));
                 }
+                Tab::Tools => {
+                    egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| self.tools_page(ui));
+                }
             });
         self.advance_pending(ctx);
         self.pk3_confirm_window(ctx);
@@ -347,6 +352,7 @@ fn debug_shot(ctx: &egui::Context, tab: &mut Tab) {
             Ok("pk3s") => Tab::Pk3s,
             Ok("settings") => Tab::Settings,
             Ok("doctor") => Tab::Doctor,
+            Ok("tools") => Tab::Tools,
             _ => Tab::Game(GAMES[0]),
         };
     }
@@ -437,6 +443,12 @@ impl App {
                     // Looked at afresh each time it opens.
                     self.doctor_reopened();
                     self.tab = Tab::Doctor;
+                }
+                if theme::tab(ui, "Tools", 17.0 * s, self.tab == Tab::Tools)
+                    .on_hover_text("SJK's folders and files, a backup, Steam's file check")
+                    .clicked()
+                {
+                    self.tab = Tab::Tools;
                 }
                 if theme::tab(ui, "Chat", 17.0 * s, self.chat_open).on_hover_text("SJK chat, in its own window").clicked() {
                     self.open_chat(&ctx);
