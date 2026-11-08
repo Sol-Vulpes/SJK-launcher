@@ -26,6 +26,8 @@ const SHOWN_LINES: usize = 40;
 const REPORT_LINES: usize = 200;
 /// A game that went down before this ran had not started.
 pub const STARTING: Duration = Duration::from_secs(20);
+/// What a game ended from the launcher went down with (`Core::end`).
+pub const FROZEN: &str = "a freeze: it stopped answering and was ended from the launcher";
 
 fn folder() -> Option<PathBuf> {
     crate::config::folder().map(|folder| folder.join("logs"))
@@ -36,6 +38,11 @@ fn short_name(game: Game) -> &'static str {
         Game::Sjk => "sjk",
         Game::Jof => "jof",
     }
+}
+
+/// Where `game`'s current (or last) run's log is.
+pub fn path(game: Game) -> Option<PathBuf> {
+    folder().map(|folder| folder.join(format!("{}.log", short_name(game))))
 }
 
 /// A fresh log for `game`'s run; the last one becomes `<game>-previous.log`.
@@ -56,7 +63,7 @@ pub fn tail(path: &Path, lines: usize) -> String {
     crash::without_home(&kept, &home())
 }
 
-fn home() -> String {
+pub fn home() -> String {
     std::env::var("USERPROFILE").or_else(|_| std::env::var("HOME")).unwrap_or_default()
 }
 
@@ -218,7 +225,7 @@ pub fn report_output(log: &Path) -> String {
     without_chat(&tail(log, REPORT_LINES * 4), REPORT_LINES)
 }
 
-fn without_chat(text: &str, lines: usize) -> String {
+pub fn without_chat(text: &str, lines: usize) -> String {
     let kept: Vec<&str> = text
         .lines()
         .filter(|line| {

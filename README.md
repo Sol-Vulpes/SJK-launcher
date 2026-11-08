@@ -50,6 +50,31 @@ A small launcher for Jedi Academy that installs, updates and starts
   later), with chat and server messages left out, and sends what waits there with
   the player's SJK identity. `cl_crashReports 0` or `cl_identity 0` in SJK keeps it
   from sending.
+- **Freezes:** while a game runs the launcher looks at its window every 2 s. One
+  Windows marks as not responding for 15 s brings up *End it and report* / *Keep
+  waiting* (asked again a minute later); *Not responding?* beside the Play button
+  asks at once. Ending it from here sends Sol JK's crash report as "a freeze", so a
+  game stuck on a white screen still reaches SJK's team.
+- **Doctor** (header, beside Settings; also from the crash window): checks what
+  usually stops Sol JK from starting, with fixes where the launcher can make them:
+  the game folder and Jedi Academy's base packs, Sol JK installed, the *Run this
+  program as an administrator* mark on `sjk.exe` (Windows then refuses to start it
+  from the launcher with error 740; the per-user mark is removed at once, the
+  all-users one through Windows' permission prompt), SJK's folder writable, the SJK
+  identity, a system-wide `WGPU_BACKEND`, and the last run's log (out of video
+  memory, a graphics error, or stopped right after the main menu before drawing
+  anything). It picks the graphics API for Sol JK only (*Automatic*, *Vulkan*,
+  *DirectX 12*, passed as `WGPU_BACKEND`), resets SJK's settings (`config.cfg` kept
+  as `config-before-reset-<time>.cfg`), and has **Send my logs**: the launcher's
+  and SJK's logs (chat left out of the launcher's, the user folder as
+  `%USERPROFILE%`), build, system, graphics card and the checks, shown before they
+  go, with an optional note, sent unasked to the SJK hub (`POST /v1/logs` without a
+  request) and signed with the player's SJK identity, which the launcher makes and
+  registers when SJK never started. The launcher waits 10 minutes between sends; the
+  hub refuses the same logs twice a day, more than 3 an hour or 5 a day per person,
+  10 a day per address and 100 a day in all. `cl_identity 0` keeps it from sending
+  (Copy them still works). Staff read them in the Staff page's Logs tab, marked
+  *unasked*.
 - **Updates itself:** with every check it also looks at its own releases here. A
   newer one shows *Launcher x.y.z: update and restart* in the header; with *Install
   new versions by themselves* on, it does that alone once no game runs and nothing

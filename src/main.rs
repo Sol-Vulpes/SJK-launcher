@@ -10,6 +10,7 @@ mod chat;
 mod config;
 mod content;
 mod dev;
+mod doctor;
 mod state;
 mod game_log;
 mod gamedata;

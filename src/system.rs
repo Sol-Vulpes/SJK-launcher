@@ -135,3 +135,73 @@ pub fn show_window(hwnd: isize) {
 
 #[cfg(not(windows))]
 pub fn show_window(_hwnd: isize) {}
+
+/// `command` without a console window of its own (the launcher has none: without this
+/// each git, cargo, reg or taskkill opens one), reading nothing.
+pub fn quiet(mut command: std::process::Command) -> std::process::Command {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
+        command.creation_flags(CREATE_NO_WINDOW);
+    }
+    command.stdin(std::process::Stdio::null());
+    command
+}
+
+/// Whether process `pid`'s visible windows have stopped answering Windows (its "Not
+/// responding": no message read for 5 seconds); `None` while it has no visible window.
+#[cfg(windows)]
+pub fn window_hung(pid: u32) -> Option<bool> {
+    use windows_sys::Win32::Foundation::{BOOL, HWND, LPARAM};
+    use windows_sys::Win32::UI::WindowsAndMessaging::{EnumWindows, GetWindowThreadProcessId, IsHungAppWindow, IsWindowVisible};
+    struct Look {
+        pid: u32,
+        seen: bool,
+        hung: bool,
+    }
+    unsafe extern "system" fn each(hwnd: HWND, lparam: LPARAM) -> BOOL {
+        // SAFETY: `lparam` is the `Look` below, alive for the whole EnumWindows call.
+        let look = unsafe { &mut *(lparam as *mut Look) };
+        let mut owner = 0u32;
+        // SAFETY: plain Win32 calls on a window handle EnumWindows gave.
+        unsafe {
+            GetWindowThreadProcessId(hwnd, &mut owner);
+            if owner == look.pid && IsWindowVisible(hwnd) != 0 {
+                look.seen = true;
+                look.hung |= IsHungAppWindow(hwnd) != 0;
+            }
+        }
+        1
+    }
+    let mut look = Look { pid, seen: false, hung: false };
+    // SAFETY: the callback only reads and writes `look` through the pointer passed.
+    unsafe {
+        EnumWindows(Some(each), &mut look as *mut Look as LPARAM);
+    }
+    look.seen.then_some(look.hung)
+}
+
+#[cfg(not(windows))]
+pub fn window_hung(_pid: u32) -> Option<bool> {
+    None
+}
+
+/// End process `pid` at once (a frozen game).
+pub fn kill(pid: u32) -> Result<(), String> {
+    let command = if cfg!(windows) {
+        let mut command = std::process::Command::new("taskkill");
+        command.args(["/PID", &pid.to_string(), "/F"]);
+        command
+    } else {
+        let mut command = std::process::Command::new("kill");
+        command.args(["-9", &pid.to_string()]);
+        command
+    };
+    let output = quiet(command).output().map_err(|error| error.to_string())?;
+    if output.status.success() {
+        Ok(())
+    } else {
+        Err(String::from_utf8_lossy(&output.stderr).trim().to_owned())
+    }
+}

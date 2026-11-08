@@ -58,17 +58,7 @@ pub fn detect() -> Option<PathBuf> {
     places.into_iter().find(|path| is_source(path)).map(|path| path.components().collect())
 }
 
-fn quiet(mut command: Command) -> Command {
-    #[cfg(windows)]
-    {
-        // The launcher has no console: without this each git and cargo opens one.
-        use std::os::windows::process::CommandExt;
-        const CREATE_NO_WINDOW: u32 = 0x0800_0000;
-        command.creation_flags(CREATE_NO_WINDOW);
-    }
-    command.stdin(Stdio::null());
-    command
-}
+use crate::system::quiet;
 
 fn git(dir: &Path) -> Command {
     let mut command = quiet(Command::new("git"));

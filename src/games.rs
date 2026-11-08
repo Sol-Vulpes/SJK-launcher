@@ -99,7 +99,14 @@ impl Game {
 
     /// Start `program` from `folder` for `game_data`: a release from `GameData`, or a
     /// developer's own build from its source folder (`dev.rs`).
-    pub fn start(self, program: &Path, folder: &Path, game_data: &Path, log: Option<&std::fs::File>) -> std::io::Result<Child> {
+    pub fn start(
+        self,
+        program: &Path,
+        folder: &Path,
+        game_data: &Path,
+        graphics: crate::config::Graphics,
+        log: Option<&std::fs::File>,
+    ) -> std::io::Result<Child> {
         let mut command = if program.extension().is_some_and(|ext| ext == "app") {
             let mut open = Command::new("open");
             open.arg("-W").arg(program);
@@ -111,6 +118,11 @@ impl Game {
         if self == Self::Sjk {
             // SJK finds the game through these when started without arguments.
             command.env("JKA_GAME_DATA", game_data).env("JKR_GAME_DATA", game_data);
+            // Doctor's graphics choice, for the game only; Automatic leaves what the
+            // player's system has.
+            if let Some(backend) = graphics.backend() {
+                command.env("WGPU_BACKEND", backend);
+            }
         }
         if let Some(log) = log
             && let (Ok(out), Ok(err)) = (log.try_clone(), log.try_clone())
