@@ -3507,7 +3507,7 @@ dependencies = [
 
 [[package]]
 name = "sjk-launcher"
-version = "0.4.2"
+version = "0.4.3"
 dependencies = [
  "auto-launch",
  "directories",

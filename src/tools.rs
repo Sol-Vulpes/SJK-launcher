@@ -146,8 +146,9 @@ mod tests {
 
     #[test]
     fn steam_installs_are_known() {
-        assert!(is_steam(Path::new(r"C:\Program Files (x86)\Steam\steamapps\common\Jedi Academy\GameData")));
-        assert!(!is_steam(Path::new(r"E:\JKA SOL\GameData")));
+        // Forward slashes: a path every system splits the same way.
+        assert!(is_steam(Path::new("C:/Program Files (x86)/Steam/steamapps/common/Jedi Academy/GameData")));
+        assert!(!is_steam(Path::new("E:/JKA SOL/GameData")));
     }
 
     #[test]
