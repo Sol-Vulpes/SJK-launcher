@@ -3479,7 +3479,7 @@ dependencies = [
 [[package]]
 name = "sjk-identity"
 version = "0.1.0"
-source = "git+https://github.com/Sol-Vulpes/SJK?tag=sjk-v2026.1102.1#6b0c58df03c9f70b3506c2bc2f0b8c49cad7f144"
+source = "git+https://github.com/Sol-Vulpes/SJK?rev=093af1dc8ffd0115bb0dc3c80618c731cf1e3b1d#093af1dc8ffd0115bb0dc3c80618c731cf1e3b1d"
 dependencies = [
  "base64",
  "chacha20poly1305",

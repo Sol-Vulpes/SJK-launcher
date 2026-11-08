@@ -3,6 +3,7 @@
 //! action; then the content collections and the settings.
 
 mod crash_window;
+mod doctor_tab;
 mod pk3_tab;
 
 use crate::content::{COLLECTIONS, Collection};
@@ -34,6 +35,7 @@ enum Tab {
     Content(Collection),
     Pk3s,
     Settings,
+    Doctor,
 }
 
 pub struct App {
@@ -70,6 +72,7 @@ pub struct App {
     /// Developer mode's branch list, read when Sol JK's page first shows it.
     branches: crate::dev::Branches,
     branches_read: bool,
+    doctor: doctor_tab::DoctorTab,
 }
 
 impl App {
@@ -115,6 +118,7 @@ impl App {
             pk3: Default::default(),
             branches: Default::default(),
             branches_read: false,
+            doctor: Default::default(),
             core,
         };
         for collection in COLLECTIONS {
@@ -262,10 +266,14 @@ impl eframe::App for App {
                 Tab::Settings => {
                     egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| self.settings(ui));
                 }
+                Tab::Doctor => {
+                    egui::ScrollArea::vertical().auto_shrink(false).show(ui, |ui| self.doctor_page(ui));
+                }
             });
         self.advance_pending(ctx);
         self.pk3_confirm_window(ctx);
         self.crash_window(ctx);
+        self.freeze_window(ctx);
         window_edges(ctx);
         self.chat_window(ctx);
 
@@ -338,6 +346,7 @@ fn debug_shot(ctx: &egui::Context, tab: &mut Tab) {
             Ok("sith") => Tab::Content(Collection::Sith),
             Ok("pk3s") => Tab::Pk3s,
             Ok("settings") => Tab::Settings,
+            Ok("doctor") => Tab::Doctor,
             _ => Tab::Game(GAMES[0]),
         };
     }
@@ -420,6 +429,14 @@ impl App {
                 ui.spacing_mut().item_spacing.x = 36.0 * s;
                 if theme::tab(ui, "Settings", 17.0 * s, self.tab == Tab::Settings).clicked() {
                     self.tab = Tab::Settings;
+                }
+                if theme::tab(ui, "Doctor", 17.0 * s, self.tab == Tab::Doctor)
+                    .on_hover_text("The game won't start or freezes? Checks, fixes and Send my logs")
+                    .clicked()
+                {
+                    // Looked at afresh each time it opens.
+                    self.doctor_reopened();
+                    self.tab = Tab::Doctor;
                 }
                 if theme::tab(ui, "Chat", 17.0 * s, self.chat_open).on_hover_text("SJK chat, in its own window").clicked() {
                     self.open_chat(&ctx);
@@ -772,7 +789,11 @@ impl App {
                 if theme::main_button(ui, &words, Vec2::new(270.0 * s, 70.0 * s), enabled).clicked() {
                     self.act(game, action);
                 }
-                if phase.running() {
+                if self.core.running(game) {
+                    if ui.link(RichText::new("Not responding?").size(15.0 * s)).on_hover_text("End the game and report where it stopped").clicked() {
+                        self.core.ask_end(game);
+                    }
+                } else if phase.running() {
                     if ui.link("Stop").clicked() {
                         self.core.slot(game).install.cancel();
                         self.play_after[game as usize] = false;

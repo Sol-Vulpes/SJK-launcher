@@ -7,7 +7,7 @@ use crate::games::{GAMES, Game};
 use crate::github::{self, Release};
 use crate::install::Install;
 use std::path::PathBuf;
-use std::sync::atomic::{AtomicBool, AtomicIsize, Ordering};
+use std::sync::atomic::{AtomicBool, AtomicIsize, AtomicU32, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 use std::time::{Duration, Instant};
 
@@ -19,7 +19,30 @@ pub struct Slot {
     pub install: Install,
     /// The game started from here still runs (a thread waits on it).
     running: AtomicBool,
+    /// Its process, while it runs.
+    pid: AtomicU32,
+    /// The player ended it from the launcher (a freeze): its exit is not a crash's.
+    ended: AtomicBool,
 }
+
+/// A game that stopped answering Windows: the launcher offers to end it and report it.
+#[derive(Clone, Copy, Debug)]
+pub struct Freeze {
+    pub game: Game,
+    /// Since when it has not answered (since Keep waiting, once chosen).
+    pub since: Instant,
+    /// The player chose Keep waiting: asked again only after [`FREEZE_ASK_AGAIN`].
+    pub waiting: bool,
+    /// The player asked to end it (Not responding?), whatever Windows says.
+    pub asked: bool,
+}
+
+/// Not answering this long is a freeze worth asking about.
+const FREEZE_AFTER: Duration = Duration::from_secs(15);
+/// After Keep waiting, the next ask.
+const FREEZE_ASK_AGAIN: Duration = Duration::from_secs(60);
+/// Between two looks at the game's window.
+const FREEZE_LOOK: Duration = Duration::from_secs(2);
 
 /// Where a game stands against its newest release.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -46,6 +69,8 @@ pub struct Inner {
     pub exit: Mutex<Option<crate::game_log::Exit>>,
     /// Developer mode's build of Sol JK from source.
     pub build: crate::dev::Build,
+    /// A game that stopped answering, for the freeze window.
+    pub freeze: Mutex<Option<Freeze>>,
     /// A newer launcher, and its update.
     pub updater: crate::self_update::Updater,
 }
@@ -75,6 +100,7 @@ impl Core {
             open_chat: AtomicBool::new(false),
             exit: Mutex::new(None),
             build: Default::default(),
+            freeze: Mutex::new(None),
             updater: Default::default(),
         }))
     }
@@ -262,23 +288,30 @@ impl Core {
     /// report of the launcher's (SJK's own reports still go, with the right build).
     fn run(&self, game: Game, program: &std::path::Path, folder: &std::path::Path, game_data: PathBuf, dev: bool) -> Result<(), String> {
         let log = crate::game_log::create(game);
+        let graphics = self.config().graphics;
         let mut child = game
-            .start(program, folder, &game_data, log.as_ref().map(|(file, _)| file))
-            .map_err(|error| format!("cannot start {}: {error}", game.name()))?;
+            .start(program, folder, &game_data, graphics, log.as_ref().map(|(file, _)| file))
+            .map_err(|error| start_error(game, &error))?;
         let slot = self.slot(game);
         slot.running.store(true, Ordering::Release);
+        slot.pid.store(child.id(), Ordering::Release);
+        slot.ended.store(false, Ordering::Release);
+        self.watch_freezes(game, child.id());
         let started = Instant::now();
         let core = self.clone();
         let log = log.map(|(_, path)| path);
         std::thread::spawn(move || {
             let status = child.wait();
             core.slot(game).running.store(false, Ordering::Release);
+            *lock(&core.freeze) = None;
             if dev {
                 core.build.clear();
             }
+            let ended = core.slot(game).ended.swap(false, Ordering::AcqRel);
             if let (Ok(status), Some(log)) = (status, log)
                 && let Some(what) = crate::game_log::bad_exit(status)
             {
+                let what = if ended { crate::game_log::FROZEN.to_owned() } else { what };
                 // A developer's build leaves reports to SJK itself, which knows its build.
                 let report_into = (!dev).then(|| game_data.join("SJK"));
                 core.went_down(game, child.id(), what, started.elapsed(), log, report_into.as_deref());
@@ -286,6 +319,85 @@ impl Core {
             core.ctx.request_repaint();
         });
         Ok(())
+    }
+
+    /// Look at `game`'s window (process `pid`) while it runs: one Windows says has not
+    /// answered for [`FREEZE_AFTER`] is a freeze, offered to end and report.
+    fn watch_freezes(&self, game: Game, pid: u32) {
+        let core = self.clone();
+        std::thread::spawn(move || {
+            let mut hung_since: Option<Instant> = None;
+            while core.running(game) && core.slot(game).pid.load(Ordering::Acquire) == pid {
+                std::thread::sleep(FREEZE_LOOK);
+                if crate::system::window_hung(pid) == Some(true) {
+                    let since = *hung_since.get_or_insert_with(Instant::now);
+                    if since.elapsed() >= FREEZE_AFTER {
+                        core.offer_freeze(game, since);
+                    }
+                } else {
+                    // Answering again, or no window yet.
+                    hung_since = None;
+                    core.clear_freeze(game);
+                }
+            }
+        });
+    }
+
+    fn offer_freeze(&self, game: Game, since: Instant) {
+        let mut freeze = lock(&self.freeze);
+        let ask = match *freeze {
+            Some(Freeze { waiting: true, since: asked, .. }) => asked.elapsed() >= FREEZE_ASK_AGAIN,
+            Some(_) => false,
+            None => true,
+        };
+        if ask {
+            *freeze = Some(Freeze { game, since, waiting: false, asked: false });
+            drop(freeze);
+            self.show();
+        }
+    }
+
+    fn clear_freeze(&self, game: Game) {
+        let mut freeze = lock(&self.freeze);
+        if freeze.is_some_and(|freeze| freeze.game == game && !freeze.asked) {
+            *freeze = None;
+            self.ctx.request_repaint();
+        }
+    }
+
+    /// The player says `game` is stuck (Not responding?): offer to end it now.
+    pub fn ask_end(&self, game: Game) {
+        if self.running(game) {
+            *lock(&self.freeze) = Some(Freeze { game, since: Instant::now(), waiting: false, asked: true });
+        }
+    }
+
+    /// The player chose Keep waiting: asked again a minute later if it still hangs.
+    pub fn keep_waiting(&self) {
+        let mut freeze = lock(&self.freeze);
+        match freeze.as_mut() {
+            Some(asked) if asked.asked => *freeze = None,
+            Some(hung) => {
+                hung.waiting = true;
+                hung.since = Instant::now();
+            }
+            None => {}
+        }
+    }
+
+    /// End `game` from the launcher (a freeze, or the player's Stuck?): its exit then
+    /// reads as a freeze, and Sol JK's report says so.
+    pub fn end(&self, game: Game) -> Result<(), String> {
+        if !self.running(game) {
+            return Err(format!("{} is not running", game.name()));
+        }
+        let slot = self.slot(game);
+        slot.ended.store(true, Ordering::Release);
+        *lock(&self.freeze) = None;
+        crate::system::kill(slot.pid.load(Ordering::Acquire)).map_err(|error| {
+            slot.ended.store(false, Ordering::Release);
+            format!("cannot end {}: {error}", game.name())
+        })
     }
 
     /// `game` (process `pid`) went down: report it for Sol JK, and show the window
@@ -318,5 +430,18 @@ impl Core {
             lines.push(line);
         }
         lines.join("\n")
+    }
+}
+
+/// Why `game` could not start, in the player's words: Windows' "requires elevation"
+/// (740) is a "Run as administrator" mark on the game, which Doctor clears.
+fn start_error(game: Game, error: &std::io::Error) -> String {
+    match error.raw_os_error() {
+        Some(740) => format!(
+            "Windows wants {} to run as administrator (error 740), which the launcher cannot do: open Doctor to fix it",
+            game.name()
+        ),
+        Some(5) => format!("cannot start {}: Windows or an antivirus refused it (access denied); open Doctor", game.name()),
+        _ => format!("cannot start {}: {error}", game.name()),
     }
 }

@@ -58,6 +58,13 @@ impl App {
                     if ui.button("Show in folder").clicked() {
                         crate::pk3s::reveal(&exit.log);
                     }
+                    if exit.game == crate::games::Game::Sjk
+                        && ui.button("Doctor").on_hover_text("Checks, fixes, and Send my logs to SJK's team").clicked()
+                    {
+                        self.doctor_reopened();
+                        self.tab = super::Tab::Doctor;
+                        close = true;
+                    }
                     if ui.button(RichText::new("Play again").color(GOLD_BRIGHT)).clicked() {
                         again = true;
                     }

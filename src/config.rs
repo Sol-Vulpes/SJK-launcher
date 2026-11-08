@@ -41,6 +41,42 @@ pub struct Config {
     pub dev_source: Option<PathBuf>,
     /// The branch it builds; `None` is whatever the source folder has checked out.
     pub dev_branch: Option<String>,
+    /// The graphics API Sol JK starts with (Doctor).
+    pub graphics: Graphics,
+    /// When the player last sent their logs from Doctor, unix seconds (its cooldown).
+    pub logs_sent: u64,
+}
+
+/// The graphics API Sol JK uses: wgpu's own pick, or one forced through `WGPU_BACKEND`
+/// for the game only (a driver whose Vulkan freezes may run DirectX 12).
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Graphics {
+    #[default]
+    Auto,
+    Vulkan,
+    Dx12,
+}
+
+impl Graphics {
+    pub const ALL: [Self; 3] = [Self::Auto, Self::Vulkan, Self::Dx12];
+
+    pub fn label(self) -> &'static str {
+        match self {
+            Self::Auto => "Automatic",
+            Self::Vulkan => "Vulkan",
+            Self::Dx12 => "DirectX 12",
+        }
+    }
+
+    /// `WGPU_BACKEND`'s value for the game, `None` to leave wgpu to choose.
+    pub fn backend(self) -> Option<&'static str> {
+        match self {
+            Self::Auto => None,
+            Self::Vulkan => Some("vulkan"),
+            Self::Dx12 => Some("dx12"),
+        }
+    }
 }
 
 /// The server written in as the default before the hub named it; a saved config holding
@@ -66,6 +102,8 @@ impl Default for Config {
             dev_mode: false,
             dev_source: None,
             dev_branch: None,
+            graphics: Graphics::Auto,
+            logs_sent: 0,
         }
     }
 }

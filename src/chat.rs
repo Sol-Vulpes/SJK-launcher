@@ -233,7 +233,7 @@ impl Reader {
         while self.active.load(Ordering::Relaxed) {
             let started = Instant::now();
             let fresh = after == 0;
-            match hub.feed(&session.identity, after, None, if fresh { 0 } else { FEED_WAIT }) {
+            match hub.feed(&session.identity, after, None, &[], if fresh { 0 } else { FEED_WAIT }) {
                 Ok(feed) => {
                     let mut view = lock(&self.view);
                     // A first read, or ids going back (the hub restarted): the backlog.
@@ -275,7 +275,7 @@ fn send_loop(inbox: &Receiver<String>, view: &Mutex<View>, session: &Mutex<Optio
             hubs = HttpHub::new(&session.hub_url, AGENT).ok().map(|hub| (session.hub_url.clone(), hub));
         }
         let outcome = match &mut hubs {
-            Some((_, hub)) => hub.chat(&session.identity, &text, &session.name).map(drop).map_err(|error| words(&error)),
+            Some((_, hub)) => hub.chat(&session.identity, &text, &session.name, sjk_identity::HubChannel::Sjk).map(drop).map_err(|error| words(&error)),
             None => Err("The hub's address is not valid".to_owned()),
         };
         let mut view = lock(view);
