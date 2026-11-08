@@ -55,6 +55,14 @@ A small launcher for Jedi Academy that installs, updates and starts
   waiting* (asked again a minute later); *Not responding?* beside the Play button
   asks at once. Ending it from here sends Sol JK's crash report as "a freeze", so a
   game stuck on a white screen still reaches SJK's team.
+- **Tools** (header, beside Doctor): SJK's folders a click away (GameData, base,
+  SJK, screenshots, demos, ghosts, chat logs, logs, crash reports, the launcher's
+  own folder; greyed while one does not exist), its files in a text editor
+  (`config.cfg`, `chat.log`, `session.log`, `last-crash.txt`, the launcher's
+  `sjk.log`), **Back up my SJK setup** (a zip of the small files at the top of `SJK`
+  and `map_edits`: identity, settings, lists, notes; logs and the big folders stay
+  out; unzip it into another PC's GameData), Steam's *Verify the game's files* for
+  a Steam install, and GameData's path to copy.
 - **Doctor** (header, beside Settings; also from the crash window): checks what
   usually stops Sol JK from starting, with fixes where the launcher can make them:
   the game folder and Jedi Academy's base packs, Sol JK installed, the *Run this

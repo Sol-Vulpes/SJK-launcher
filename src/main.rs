@@ -24,6 +24,7 @@ mod scans;
 mod self_update;
 mod system;
 mod theme;
+mod tools;
 
 use eframe::egui;
 use std::sync::Arc;
