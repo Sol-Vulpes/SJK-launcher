@@ -3,7 +3,7 @@ members = [".", "sith-cloud"]
 
 [package]
 name = "sjk-launcher"
-version = "0.4.3"
+version = "0.4.4"
 edition = "2024"
 license = "GPL-2.0-only"
 description = "Installs, updates and starts SJK and JoF EternalJK, and fetches JoF content"
