@@ -33,7 +33,9 @@ A small launcher for Jedi Academy that installs, updates and starts
   game uses the copy in the PK3 last by name). Turn PK3s off (renamed to
   `name.pk3.off`, which the games skip, and back with one click) or delete them, one
   or all those ticked. A file JoF content or the Sith cloud put there is unchosen there
-  too, so it doesn't come back. The games' own files (Jedi Academy's `assets0-3`,
+  too, so it doesn't come back. Files inside a PK3 can be ticked (or all those a filter
+  shows) and removed: the PK3 is written again without them, the original kept in the
+  launcher's `pk3-backups` folder (Tools tab) and put back with one click. The games' own files (Jedi Academy's `assets0-3`,
   SJK's and EternalJK's folders) are listed but stay.
 - **Tray and autostart:** closing the window keeps the launcher in the tray, and
   *Start with my computer* runs it hidden at login (`--minimized`). It checks GitHub

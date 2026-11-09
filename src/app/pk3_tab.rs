@@ -1,6 +1,7 @@
 //! The PK3s tab: every PK3 in `GameData`, searched by name and by the files inside
 //! them, with what each holds, which PK3 replaces which, the safety scan, and
-//! turning PK3s off or deleting them (one, or all those ticked).
+//! turning PK3s off or deleting them (one, or all those ticked), and removing
+//! files from inside one.
 
 use super::{App, BAD, DIM, Tab, cell, level_badge, level_mark};
 use crate::content::{COLLECTIONS, Collection};
@@ -64,6 +65,12 @@ pub(super) struct Pk3Tab {
     /// PK3s waiting for the player to confirm their deletion.
     confirm: Option<Vec<PathBuf>>,
     search: Option<Search>,
+    /// Files ticked inside the open PK3, as its list names them.
+    marked: HashSet<String>,
+    /// The open PK3 and its ticked files, waiting for the player to confirm.
+    confirm_files: Option<(PathBuf, Vec<String>)>,
+    /// PK3s edited this run, and where their originals are kept.
+    originals: HashMap<PathBuf, PathBuf>,
 }
 
 impl Pk3Tab {
@@ -467,6 +474,7 @@ impl App {
             return;
         }
         self.pk3.open = Some(pk3.path.clone());
+        self.pk3.marked.clear();
         // Show what the search found inside, if it found anything there.
         let inside = self.pk3.search.as_ref().is_some_and(|search| {
             search.index.find(&pk3.path).is_some_and(|at| search.inside[at].count > 0)
@@ -492,6 +500,9 @@ impl App {
                     }
                     if self.pk3.ticked.remove(path) {
                         self.pk3.ticked.insert(now.clone());
+                    }
+                    if let Some(original) = self.pk3.originals.remove(path) {
+                        self.pk3.originals.insert(now.clone(), original);
                     }
                     if self.pk3.open.as_ref() == Some(path) {
                         self.pk3.open = Some(now);
@@ -550,8 +561,78 @@ impl App {
         }
     }
 
+    /// Asks before taking files out of a PK3.
+    fn pk3_files_confirm_window(&mut self, ctx: &egui::Context) {
+        let Some((path, names)) = self.pk3.confirm_files.clone() else { return };
+        let Some(index) = self.pk3.indexer.index() else { return };
+        let Some(at) = index.find(&path) else {
+            self.pk3.confirm_files = None;
+            return;
+        };
+        let pk3 = index.pk3s[at].clone();
+        let size: u64 = pk3.contents.files.iter().filter(|(name, _)| names.contains(name)).map(|(_, size)| size).sum();
+        let mut remove = false;
+        let title = if names.len() == 1 { format!("Remove 1 file from {}?", pk3.name) } else { format!("Remove {} files from {}?", names.len(), pk3.name) };
+        egui::Window::new(title)
+            .collapsible(false)
+            .resizable(false)
+            .default_width(520.0)
+            .anchor(egui::Align2::CENTER_CENTER, [0.0, 0.0])
+            .show(ctx, |ui| {
+                egui::ScrollArea::vertical().max_height(180.0).show(ui, |ui| {
+                    for name in &names {
+                        ui.label(RichText::new(name).monospace().size(13.0).color(DIM));
+                    }
+                });
+                ui.label(format!("{} comes out of the PK3; the rest of it stays as it is.", human_size(size)));
+                ui.label(RichText::new("The original is kept in the launcher's PK3 backups folder (Tools tab), and \"Put the original back\" here undoes it.").color(DIM));
+                ui.add_space(6.0);
+                ui.horizontal(|ui| {
+                    remove = ui.button(RichText::new("Remove").strong().color(BAD)).clicked();
+                    if ui.button("Cancel").clicked() {
+                        self.pk3.confirm_files = None;
+                    }
+                });
+            });
+        if ctx.input(|input| input.key_pressed(egui::Key::Escape)) {
+            self.pk3.confirm_files = None;
+        }
+        if !remove {
+            return;
+        }
+        self.pk3.confirm_files = None;
+        let Some(backups) = pk3s::backups() else {
+            self.say("No launcher folder to keep the original in", true);
+            return;
+        };
+        match pk3s::remove_files(&pk3, &names, &backups) {
+            Ok(backup) => {
+                self.pk3.marked.clear();
+                self.pk3.originals.insert(pk3.path.clone(), backup);
+                let files = if names.len() == 1 { "1 file".to_owned() } else { format!("{} files", names.len()) };
+                self.say(format!("{files} removed from {}", pk3.name), false);
+            }
+            Err(error) => self.say(error, true),
+        }
+        self.pk3_reread();
+    }
+
+    fn pk3_restore(&mut self, pk3: &Pk3) {
+        let Some(backup) = self.pk3.originals.get(&pk3.path).cloned() else { return };
+        match pk3s::restore(&backup, &pk3.path) {
+            Ok(()) => {
+                self.pk3.originals.remove(&pk3.path);
+                self.pk3.marked.clear();
+                self.say(format!("{} is back as it was", pk3.name), false);
+            }
+            Err(error) => self.say(error, true),
+        }
+        self.pk3_reread();
+    }
+
     /// Asks before deleting, and offers turning off instead.
     pub(super) fn pk3_confirm_window(&mut self, ctx: &egui::Context) {
+        self.pk3_files_confirm_window(ctx);
         let Some(paths) = self.pk3.confirm.clone() else { return };
         let Some(index) = self.pk3.indexer.index() else { return };
         let pk3s: Vec<&Pk3> = paths.iter().filter_map(|path| index.find(path)).map(|at| &index.pk3s[at]).collect();
@@ -614,7 +695,7 @@ impl App {
     /// Docked at the right: one PK3, what it holds, who it replaces, the scan,
     /// and its files.
     pub(super) fn pk3_panel(&mut self, ctx: &egui::Context) {
-        if self.tab != Tab::Pk3s || self.pk3.confirm.is_some() {
+        if self.tab != Tab::Pk3s || self.pk3.confirm.is_some() || self.pk3.confirm_files.is_some() {
             return;
         }
         let Some(path) = self.pk3.open.clone() else { return };
@@ -628,8 +709,11 @@ impl App {
         };
         let pk3 = index.pk3s[at].clone();
         let managed = self.managed().get(&same_path(&pk3.on_path())).copied();
+        // JoF content and the Sith cloud check their files: an edited one would come back whole.
+        let editable = !pk3.owner.protected() && managed.is_none() && pk3.contents.error.is_none();
         let mut close = false;
         let mut action = None;
+        let mut restore = false;
         egui::SidePanel::right("pk3")
             .exact_width(PANEL_WIDTH)
             .resizable(false)
@@ -669,6 +753,12 @@ impl App {
                         pk3s::reveal(&pk3.path);
                     }
                 });
+                if self.pk3.originals.contains_key(&pk3.path) {
+                    ui.horizontal(|ui| {
+                        ui.label(RichText::new("Files removed; the original is kept").size(13.0).color(GOLD_BRIGHT));
+                        restore = ui.button("Put the original back").clicked();
+                    });
+                }
                 ui.add_space(8.0);
                 theme::rule(ui);
                 ui.add_space(6.0);
@@ -714,9 +804,12 @@ impl App {
                 ui.add_space(6.0);
                 theme::rule(ui);
                 ui.add_space(6.0);
-                self.pk3_files(ui, &index, at);
+                self.pk3_files(ui, &index, at, editable);
             });
-        if close || (ctx.input(|input| input.key_pressed(egui::Key::Escape)) && self.pk3.confirm.is_none()) {
+        if restore {
+            self.pk3_restore(&pk3);
+        }
+        if close || (ctx.input(|input| input.key_pressed(egui::Key::Escape)) && self.pk3.confirm.is_none() && self.pk3.confirm_files.is_none()) {
             self.pk3.open = None;
         }
         match action {
@@ -775,9 +868,26 @@ impl App {
     }
 
     /// The files inside, filtered; a file another PK3 replaces is struck through.
-    fn pk3_files(&mut self, ui: &mut egui::Ui, index: &Index, at: usize) {
+    /// When `editable`, files can be ticked and taken out.
+    fn pk3_files(&mut self, ui: &mut egui::Ui, index: &Index, at: usize, editable: bool) {
         let pk3 = &index.pk3s[at];
-        ui.label(RichText::new("Files inside").size(13.0).color(DIM));
+        self.pk3.marked.retain(|name| pk3.contents.files.iter().any(|(file, _)| file == name));
+        ui.horizontal(|ui| {
+            ui.label(RichText::new("Files inside").size(13.0).color(DIM));
+            if editable && !self.pk3.marked.is_empty() {
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    let count = self.pk3.marked.len();
+                    if ui.button(RichText::new(format!("Remove {count}…")).color(BAD)).on_hover_text("Take the ticked files out of this PK3").clicked() {
+                        let mut names: Vec<String> = self.pk3.marked.iter().cloned().collect();
+                        names.sort_by_key(|name| name.to_ascii_lowercase());
+                        self.pk3.confirm_files = Some((pk3.path.clone(), names));
+                    }
+                    if ui.link("Untick").clicked() {
+                        self.pk3.marked.clear();
+                    }
+                });
+            }
+        });
         ui.add(egui::TextEdit::singleline(&mut self.pk3.file_filter).hint_text("Filter").desired_width(f32::INFINITY).margin(Vec2::new(10.0, 8.0)));
         ui.add_space(4.0);
         let flagged: HashMap<String, Level> = match self.scanner.state(&pk3.key) {
@@ -795,6 +905,12 @@ impl App {
             })
             .collect();
         rows.sort_by_key(|(name, _)| name.to_ascii_lowercase());
+        if editable && !words.is_empty() && rows.iter().any(|(name, _)| !self.pk3.marked.contains(name)) {
+            let shown = if rows.len() == 1 { "Tick the file shown".to_owned() } else { format!("Tick the {} files shown", rows.len()) };
+            if ui.link(RichText::new(shown).size(13.0)).clicked() {
+                self.pk3.marked.extend(rows.iter().map(|(name, _)| name.clone()));
+            }
+        }
         let height = 22.0;
         egui::ScrollArea::vertical().id_salt("pk3-files").auto_shrink(false).show_rows(ui, height, rows.len(), |ui, range| {
             ui.spacing_mut().item_spacing.y = 0.0;
@@ -806,6 +922,16 @@ impl App {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         ui.label(RichText::new(human_size(*size)).size(13.0).color(DIM));
                         ui.with_layout(egui::Layout::left_to_right(egui::Align::Center), |ui| {
+                            if editable {
+                                let mut ticked = self.pk3.marked.contains(name);
+                                if ui.checkbox(&mut ticked, "").changed() {
+                                    if ticked {
+                                        self.pk3.marked.insert(name.clone());
+                                    } else {
+                                        self.pk3.marked.remove(name);
+                                    }
+                                }
+                            }
                             let text = RichText::new(name.as_str()).monospace().size(13.0).color(colour);
                             let text = if hidden.is_some() { text.strikethrough() } else { text };
                             let label = ui.add(egui::Label::new(text).truncate());
