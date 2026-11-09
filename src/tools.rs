@@ -29,6 +29,7 @@ pub fn folders(game_data: Option<&Path>) -> Vec<Place> {
         ]);
     }
     if let Some(folder) = crate::config::folder() {
+        places.push(Place { label: "PK3 backups", hint: "The originals of PK3s you removed files from", path: folder.join("pk3-backups") });
         places.push(Place { label: "Launcher", hint: "The launcher's settings and the games' output logs", path: folder });
     }
     places
@@ -120,7 +121,7 @@ pub fn backup(game_data: &Path, to: &Path) -> Result<usize, String> {
 }
 
 /// The date of day `days` since 1970 (Howard Hinnant's civil_from_days).
-fn civil(days: u64) -> (i64, u32, u32) {
+pub fn civil(days: u64) -> (i64, u32, u32) {
     let z = days as i64 + 719_468;
     let era = z.div_euclid(146_097);
     let doe = z - era * 146_097;

@@ -12,10 +12,13 @@
 //! - The game's own files (Jedi Academy's `assets0-3.pk3`, SJK's folder and
 //!   EternalJK's) are listed and searchable but can be neither turned off nor
 //!   deleted from here.
+//! - **Removing files inside** writes the PK3 again without them (the others copied
+//!   as they are, never recompressed). The original goes to the launcher's
+//!   `pk3-backups` folder first and can be put back.
 
 use crate::pk3scan::{self, LocalFile};
 use sha2::{Digest, Sha256};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 use std::time::SystemTime;
@@ -371,6 +374,82 @@ pub fn delete(pk3: &Pk3) -> Result<(), String> {
     std::fs::remove_file(&pk3.path).map_err(|error| format!("{}: {}", pk3.name, explain(&error)))
 }
 
+/// Where the originals of edited PK3s are kept: the launcher's folder, outside
+/// `GameData`, so no game loads them.
+pub fn backups() -> Option<PathBuf> {
+    crate::config::folder().map(|folder| folder.join("pk3-backups"))
+}
+
+/// `name (dd-mm-yyyy hh-mm-ss).pk3`, for a backup made now (UTC).
+fn backup_name(name: &str) -> String {
+    let now = crate::doctor::unix_now();
+    let (year, month, day) = crate::tools::civil(now / 86_400);
+    let (hour, minute, second) = (now / 3600 % 24, now / 60 % 60, now % 60);
+    let stem = name.strip_suffix(".pk3").or_else(|| name.strip_suffix(".PK3")).unwrap_or(name);
+    format!("{stem} ({day:02}-{month:02}-{year} {hour:02}-{minute:02}-{second:02}).pk3")
+}
+
+/// Take `names` (as listed in [`Contents::files`]) out of a PK3. The original is
+/// copied into `backups/<folder>/` first; returns that copy's path.
+pub fn remove_files(pk3: &Pk3, names: &[String], backups: &Path) -> Result<PathBuf, String> {
+    if pk3.owner.protected() {
+        return Err(format!("{} is {} and cannot be changed here", pk3.name, pk3.owner.label()));
+    }
+    let gone: HashSet<String> = names.iter().map(|name| name.replace('\\', "/").to_ascii_lowercase()).collect();
+    let fail = |error: &dyn std::fmt::Display| format!("{}: {error}", pk3.name);
+    let new = pk3.path.with_file_name(format!("{}.new", pk3.name));
+    let written = (|| -> Result<(), String> {
+        let file = std::fs::File::open(&pk3.path).map_err(|error| fail(&explain(&error)))?;
+        let mut archive = zip::ZipArchive::new(file).map_err(|error| fail(&error))?;
+        let mut writer = zip::ZipWriter::new(std::fs::File::create(&new).map_err(|error| fail(&explain(&error)))?);
+        let (mut removed, mut kept) = (0, 0);
+        for at in 0..archive.len() {
+            let entry = archive.by_index_raw(at).map_err(|error| fail(&error))?;
+            let name = entry.name().replace('\\', "/");
+            if gone.contains(&name.to_ascii_lowercase()) {
+                removed += 1;
+                continue;
+            }
+            if !name.ends_with('/') {
+                kept += 1;
+            }
+            writer.raw_copy_file(entry).map_err(|error| fail(&error))?;
+        }
+        if removed == 0 {
+            return Err(format!("{}: none of those files are in it", pk3.name));
+        }
+        if kept == 0 {
+            return Err(format!("{}: that is every file in it; delete the PK3 instead", pk3.name));
+        }
+        writer.finish().map_err(|error| fail(&error))?;
+        Ok(())
+    })();
+    if let Err(error) = written {
+        let _ = std::fs::remove_file(&new);
+        return Err(error);
+    }
+    let folder = backups.join(&pk3.folder);
+    let backup = folder.join(backup_name(&pk3.name));
+    if let Err(error) = std::fs::create_dir_all(&folder).and_then(|()| std::fs::copy(&pk3.path, &backup)) {
+        let _ = std::fs::remove_file(&new);
+        return Err(format!("{}: the original could not be kept ({error}), so nothing was changed", pk3.name));
+    }
+    if let Err(error) = std::fs::rename(&new, &pk3.path) {
+        let _ = std::fs::remove_file(&new);
+        let _ = std::fs::remove_file(&backup);
+        return Err(fail(&explain(&error)));
+    }
+    Ok(backup)
+}
+
+/// Put an edited PK3's original back over it (at `to`, where the PK3 is now).
+pub fn restore(backup: &Path, to: &Path) -> Result<(), String> {
+    let name = to.file_name().map(|name| name.to_string_lossy().into_owned()).unwrap_or_default();
+    std::fs::copy(backup, to).map_err(|error| format!("{name}: {}", explain(&error)))?;
+    let _ = std::fs::remove_file(backup);
+    Ok(())
+}
+
 /// Show the file in the system's file manager.
 pub fn reveal(path: &Path) {
     #[cfg(windows)]
@@ -523,6 +602,31 @@ mod tests {
         // The game's own files stay.
         let assets = by_name(&again, "assets1.pk3").1.clone();
         assert!(set_on(&assets, false).is_err() && delete(&assets).is_err());
+        let _ = std::fs::remove_dir_all(root);
+    }
+
+    #[test]
+    fn removing_files_keeps_the_rest_and_the_original() {
+        let root = game_data("parts");
+        let index = index(&root, &Mutex::default(), &|_, _| {});
+        let kyle = by_name(&index, "zz_kyle.pk3").1.clone();
+        let backups = root.join("backups");
+        let backup = remove_files(&kyle, &["models/players/kyle/skin.skin".into()], &backups).unwrap();
+        assert!(backup.starts_with(backups.join("base")) && backup.is_file());
+        let again = super::index(&root, &Mutex::default(), &|_, _| {});
+        let files: Vec<_> = by_name(&again, "zz_kyle.pk3").1.contents.files.iter().map(|(name, _)| name.clone()).collect();
+        assert_eq!(files, ["models/players/kyle/model.glm"]);
+        assert!(!root.join("base/zz_kyle.pk3.new").exists());
+        // Not the last file, not a file that isn't there, not the game's own.
+        let kyle = by_name(&again, "zz_kyle.pk3").1.clone();
+        assert!(remove_files(&kyle, &["models/players/kyle/model.glm".into()], &backups).is_err());
+        assert!(remove_files(&kyle, &["nothing".into()], &backups).is_err());
+        let assets = by_name(&again, "assets1.pk3").1.clone();
+        assert!(remove_files(&assets, &["maps/ffa_bespin.bsp".into()], &backups).is_err());
+        restore(&backup, &kyle.path).unwrap();
+        let back = super::index(&root, &Mutex::default(), &|_, _| {});
+        assert_eq!(by_name(&back, "zz_kyle.pk3").1.contents.files.len(), 2);
+        assert!(!backup.exists());
         let _ = std::fs::remove_dir_all(root);
     }
 
