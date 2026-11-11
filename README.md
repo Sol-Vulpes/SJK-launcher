@@ -162,3 +162,38 @@ scp mymap.pk3 sith-cloud:C:/ProgramData/SithCloud/repository/maps/
 `.sith-cloud-md5.json`); `GET /repository/<group>/<file>` serves it, with `Range` for
 resumed downloads. Build it with `cargo build --release -p sith-cloud` (the Windows exe
 links the C runtime statically, see `.cargo/config.toml`).
+
+### Model sync
+
+JoF- and Sith-verified players upload the model they wear straight to the server
+(SJK's `docs/model-sync.md`, "Wire"). The SJK hub signs a short upload ticket; the
+server checks it against the hub's public key and checks the pack with SJK's
+`sjk-model-sync` crate, the same checks the game runs.
+
+- **Config:** the hub's model sync public key (base64, 32 bytes), either
+  `--hub-key <base64>` or the file `hub-model-sync.pub` in the root. Without it the
+  upload and rollback endpoints answer 404; downloads and the index still work.
+- **Storage:** `models\<name>\<n>.pk3` and `models\<name>\versions.json` (every version
+  with the sender's key, tick group and time, and which one is current), plus
+  `models\uploads.json` for the rate limits. Outside `repository`, so the manifest
+  never lists them. Versions are never deleted.
+- `GET /models/index.json`: each synced model's current version, and `packs`, the
+  `models/players/<name>/` folders the hosts' own PK3s hold (read from each PK3's
+  directory once per MD5, kept in `.sith-cloud-md5.json`).
+- `PUT /models/<name>` with `Authorization: SJK-Ticket <ticket>` and the PK3 as body:
+  `{"version":n,"linked":bool}`. Refused with `bad_ticket` (401), `rejected` and `why`
+  (400), `host_pack` (409, a name the hosts' PK3s hold), `too_large` (413, over 25 MB)
+  or `rate_limited` (429: 5 uploads a day a key, one an hour a name). Content the
+  current version already has is linked: nothing stored, not counted.
+- `GET /models/<name>/<n>.pk3`: a version, with `Range`.
+- `POST /models/<name>/rollback` with a staff rollback ticket: `{"version":n}`.
+
+Staff can also list and roll back on the host:
+
+```
+sith-cloud --root C:\ProgramData\SithCloud versions <name>
+sith-cloud --root C:\ProgramData\SithCloud rollback <name> <n>
+```
+
+A rollback from the command line takes effect at once (the server reads
+`versions.json` on every request).
