@@ -14,7 +14,7 @@ zip = { version = "2", default-features = false }
 ed25519-dalek = "3.0.0"
 base64 = "0.23.1"
 # Model sync's pack checks, shared with SJK (docs/model-sync.md there).
-sjk-model-sync = { git = "https://github.com/Sol-Vulpes/SJK", rev = "0294f800c024554fc70f95ec558279438d367fab" }
+sjk-model-sync = { git = "https://github.com/Sol-Vulpes/SJK", rev = "c2191ef16f47c6e0b1207a4e06563ca8279f250a" }
 
 [dev-dependencies]
 sjk-jof-content = { git = "https://github.com/Sol-Vulpes/SJK", tag = "sjk-v2026.1102.1" }
