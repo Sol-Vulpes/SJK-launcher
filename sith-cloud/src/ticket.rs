@@ -26,7 +26,8 @@ impl Act {
     /// The tick groups the hub may give this act to.
     fn allows(self, tick: &str) -> bool {
         match self {
-            Self::Upload => matches!(tick, "jof" | "sith"),
+            // SJK's staff and its creator share models too (Sol, 11/11/2026).
+            Self::Upload => matches!(tick, "jof" | "sith" | "staff"),
             Self::Rollback => tick == "staff",
         }
     }
@@ -195,9 +196,14 @@ mod tests {
         assert_eq!(verify(&ticket, &key(), Act::Rollback, "vader", 1000).unwrap_err(), BadTicket::Act);
         assert_eq!(verify(&ticket, &key(), Act::Upload, "yoda", 1000).unwrap_err(), BadTicket::Model);
         let jawa = sign(&serde_json::json!({
-            "v": 1, "act": "upload", "key": "k", "tick": "staff", "model": "vader", "md5": "ab", "version": null, "exp": 2000,
+            "v": 1, "act": "upload", "key": "k", "tick": "jawa", "model": "vader", "md5": "ab", "version": null, "exp": 2000,
         }));
         assert_eq!(verify(&jawa, &key(), Act::Upload, "vader", 1000).unwrap_err(), BadTicket::Tick);
+        // Staff and the creator upload too.
+        let staff = sign(&serde_json::json!({
+            "v": 1, "act": "upload", "key": "k", "tick": "staff", "model": "vader", "md5": "ab", "version": null, "exp": 2000,
+        }));
+        assert!(verify(&staff, &key(), Act::Upload, "vader", 1000).is_ok());
         let v2 = sign(&serde_json::json!({
             "v": 2, "act": "upload", "key": "k", "tick": "jof", "model": "vader", "md5": "ab", "version": null, "exp": 2000,
         }));

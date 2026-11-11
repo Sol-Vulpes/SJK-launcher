@@ -165,7 +165,7 @@ links the C runtime statically, see `.cargo/config.toml`).
 
 ### Model sync
 
-JoF- and Sith-verified players upload the model they wear straight to the server
+JoF- and Sith-verified players, SJK's staff and its creator upload models straight to the server
 (SJK's `docs/model-sync.md`, "Wire"). The SJK hub signs a short upload ticket; the
 server checks it against the hub's public key and checks the pack with SJK's
 `sjk-model-sync` crate, the same checks the game runs.
