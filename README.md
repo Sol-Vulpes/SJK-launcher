@@ -182,9 +182,11 @@ server checks it against the hub's public key and checks the pack with SJK's
   directory once per MD5, kept in `.sith-cloud-md5.json`).
 - `PUT /models/<name>` with `Authorization: SJK-Ticket <ticket>` and the PK3 as body:
   `{"version":n,"linked":bool}`. Refused with `bad_ticket` (401), `rejected` and `why`
-  (400), `host_pack` (409, a name the hosts' PK3s hold), `too_large` (413, over 25 MB)
-  or `rate_limited` (429: 5 uploads a day a key, one an hour a name). Content the
-  current version already has is linked: nothing stored, not counted.
+  (400), `too_large` (413, over 25 MB) or `rate_limited` (429: 5 uploads a day a key, one an hour a name). Content the
+  current version already has is linked: nothing stored, not counted. A name the
+  hosts' PK3s hold may be uploaded too (since 11/11/2026): it is a newer version of
+  their model, which SJK saves after their packs (`zzz_sjk-model-<name>.pk3`), so it
+  wins for the players who fetch it; the hosts' PK3 is never touched.
 - `GET /models/<name>/<n>.pk3`: a version, with `Range`.
 - `POST /models/<name>/rollback` with a staff rollback ticket: `{"version":n}`.
 

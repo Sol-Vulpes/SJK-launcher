@@ -188,8 +188,10 @@ impl Models {
             println!("model {name}: ticket from {} used again", ticket.key);
             return error(401, "bad_ticket");
         }
-        if packs.contains_key(name) {
-            return error(409, "host_pack");
+        // A host pack's name may get a newer version too (Sol, 11/11/2026): clients load
+        // the synced file after the hosts' packs, so it wins for those who fetch it.
+        if let Some(pack) = packs.get(name) {
+            println!("model {name}: a newer version over the hosts' {} from {}", pack.file, ticket.key);
         }
         let mut versions = self.versions(name).unwrap_or_default();
         if let Some(current) = versions.current()
@@ -452,12 +454,16 @@ pub(crate) mod tests {
     }
 
     #[test]
-    fn host_packs_are_never_overwritten() {
+    fn a_host_packs_model_gets_newer_versions_too() {
         let (_root, models) = models("host");
         let (pk3, md5) = pack("kyle", "torso,a.tga");
         let packs = BTreeMap::from([("kyle".to_owned(), HostPack { group: "skins".into(), file: "kyle.pk3".into() })]);
         let ticket = format!("SJK-Ticket {}", testing::upload("k1", "kyle", &md5, NOW + 600));
-        assert_eq!(models.upload("kyle", Some(&ticket), &mut &pk3[..], &packs, NOW), error(409, "host_pack"));
+        let reply = models.upload("kyle", Some(&ticket), &mut &pk3[..], &packs, NOW);
+        assert_eq!(reply.status, 200);
+        assert_eq!(reply.body["version"], 1);
+        assert_eq!(models.index(&packs)["models"]["kyle"]["version"], 1);
+        assert_eq!(models.index(&packs)["packs"]["kyle"]["file"], "kyle.pk3");
     }
 
     #[test]
