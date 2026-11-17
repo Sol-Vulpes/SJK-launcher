@@ -404,12 +404,38 @@ pub fn package(game_data: &Path, checks: &[Check], graphics: Graphics, build: &s
         if body.trim().is_empty() {
             continue;
         }
-        let body = newest(&body, *max);
+        // A crash report's head (kind, build, message, backtrace) says what happened:
+        // only its last lines are cut.
+        let body = if index == 4 { head_kept(&body, *max) } else { newest(&body, *max) };
         // The launcher's logs are the game's raw output, chat included: left out.
         let body = if index < 2 { crate::game_log::without_chat(&body, usize::MAX) } else { body };
         text.push_str(&format!("\n--- {what} ---\n{}\n", without_home(&body, &home)));
     }
     Package { upload: LogUpload { logs: text, build: build.to_owned(), os, gpu }.fitted() }
+}
+
+/// A crash report in about `max` bytes: everything up to its "Last lines:" whole (a
+/// backtrace past half of `max` cut at its end), then the newest of those lines in
+/// what is left.
+fn head_kept(text: &str, max: usize) -> String {
+    const MARK: &str = "\nLast lines:\n";
+    if text.len() <= max {
+        return text.to_owned();
+    }
+    let Some(at) = text.find(MARK).map(|at| at + MARK.len()) else {
+        return newest(text, max);
+    };
+    let (head, lines) = text.split_at(at);
+    let head = if head.len() > max / 2 {
+        let mut end = max / 2;
+        while !head.is_char_boundary(end) {
+            end -= 1;
+        }
+        format!("{}\n[rest of the report left out]{MARK}", &head[..end])
+    } else {
+        head.to_owned()
+    };
+    format!("{head}{}", newest(lines, max.saturating_sub(head.len())))
 }
 
 /// The newest `max` bytes of `text`, from a line's start.
@@ -521,6 +547,14 @@ mod tests {
     fn the_package_holds_the_findings_and_the_newest_lines() {
         assert_eq!(newest("aaaa\nbbbb\ncccc\n", 7), "[earlier lines left out]\ncccc\n");
         assert_eq!(newest("short", 100), "short");
+        let report = format!("SJK crash report (unclean)\nBuild: 1\n\nMessage:\nboom\n\nLast lines:\n{}last\n", "line\n".repeat(100));
+        let kept = head_kept(&report, 200);
+        assert!(kept.starts_with("SJK crash report (unclean)\nBuild: 1\n\nMessage:\nboom\n\nLast lines:\n[earlier lines left out]\n"), "{kept}");
+        assert!(kept.ends_with("last\n") && kept.len() <= 230, "{kept}");
+        assert_eq!(head_kept(&report, 10_000), report);
+        let huge = format!("SJK crash report (panic)\n{}\nLast lines:\nend\n", "frame\n".repeat(100));
+        assert!(head_kept(&huge, 100).contains("[rest of the report left out]\nLast lines:\n"));
+        assert!(head_kept(&huge, 100).ends_with("end\n"));
         let dir = std::env::temp_dir().join(format!("sjk-doctor-{}", std::process::id()));
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("SJK").join("logs")).unwrap();
