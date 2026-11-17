@@ -77,7 +77,8 @@ A small launcher for Jedi Academy that installs, updates and starts
   *DirectX 12*, passed as `WGPU_BACKEND`), resets SJK's settings (`config.cfg` kept
   as `config-before-reset-<time>.cfg`), and has **Send my logs**: the launcher's
   and SJK's logs (chat left out of the launcher's, the user folder as
-  `%USERPROFILE%`), build, system, graphics card and the checks, shown before they
+  `%USERPROFILE%`; the last crash report keeps its head, kind, message and
+  backtrace, and only its last lines are cut), build, system, graphics card and the checks, shown before they
   go, with an optional note, sent unasked to the SJK hub (`POST /v1/logs` without a
   request) and signed with the player's SJK identity, which the launcher makes and
   registers when SJK never started. The launcher waits 10 minutes between sends; the
