@@ -34,20 +34,20 @@ pub struct Config {
     pub sith_files: String,
     /// MD5s of PK3s the player chose to download although the scan found danger.
     pub trusted: std::collections::BTreeSet<String>,
-    /// Developer mode: Sol JK's page also builds and starts a branch of SJK's source
+    /// Developer mode: Sun JK's page also builds and starts a branch of SJK's source
     /// (`dev.rs`).
     pub dev_mode: bool,
     /// The SJK source checkout developer mode builds from.
     pub dev_source: Option<PathBuf>,
     /// The branch it builds; `None` is whatever the source folder has checked out.
     pub dev_branch: Option<String>,
-    /// The graphics API Sol JK starts with (Doctor).
+    /// The graphics API Sun JK starts with (Doctor).
     pub graphics: Graphics,
     /// When the player last sent their logs from Doctor, unix seconds (its cooldown).
     pub logs_sent: u64,
 }
 
-/// The graphics API Sol JK uses: wgpu's own pick, or one forced through `WGPU_BACKEND`
+/// The graphics API Sun JK uses: wgpu's own pick, or one forced through `WGPU_BACKEND`
 /// for the game only (a driver whose Vulkan freezes may run DirectX 12).
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]

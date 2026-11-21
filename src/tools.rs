@@ -49,7 +49,7 @@ pub fn files(game_data: Option<&Path>) -> Vec<Place> {
         ]);
     }
     if let Some(path) = crate::game_log::path(crate::games::Game::Sjk) {
-        files.push(Place { label: "sjk.log", hint: "What Sol JK printed when the launcher last started it", path });
+        files.push(Place { label: "sjk.log", hint: "What Sun JK printed when the launcher last started it", path });
     }
     files
 }

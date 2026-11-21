@@ -1,7 +1,7 @@
 # SJK Launcher
 
 A small launcher for Jedi Academy that installs, updates and starts
-[Sol JK](https://github.com/Sol-Vulpes/SJK) and
+[Sun JK](https://github.com/Sol-Vulpes/SJK) and
 [JoF EternalJK](https://github.com/JediofFreedom/JoF_EJK), and downloads JoF content.
 
 - **Games:** each card shows the version you play and the newest release on GitHub.
@@ -46,7 +46,7 @@ A small launcher for Jedi Academy that installs, updates and starts
   `logs/sjk.log` or `logs/jof.log` in the launcher's settings folder (the run before
   as `*-previous.log`). If the game ends with an error code, at start or later, the
   launcher comes up with the code in plain words, the last lines, and Copy / Open /
-  Play again. For Sol JK it also makes sure SJK's team gets a crash report right
+  Play again. For Sun JK it also makes sure SJK's team gets a crash report right
   away: it writes one into SJK's `crashes/` folder when the game could not (built
   from SJK's own `running-<pid>.json` marker when it left one, so no duplicate
   later), with chat and server messages left out, and sends what waits there with
@@ -55,7 +55,7 @@ A small launcher for Jedi Academy that installs, updates and starts
 - **Freezes:** while a game runs the launcher looks at its window every 2 s. One
   Windows marks as not responding for 15 s brings up *End it and report* / *Keep
   waiting* (asked again a minute later); *Not responding?* beside the Play button
-  asks at once. Ending it from here sends Sol JK's crash report as "a freeze", so a
+  asks at once. Ending it from here sends Sun JK's crash report as "a freeze", so a
   game stuck on a white screen still reaches SJK's team.
 - **Tools** (header, beside Doctor): SJK's folders a click away (GameData, base,
   SJK, screenshots, demos, ghosts, chat logs, logs, crash reports, the launcher's
@@ -66,14 +66,14 @@ A small launcher for Jedi Academy that installs, updates and starts
   out; unzip it into another PC's GameData), Steam's *Verify the game's files* for
   a Steam install, and GameData's path to copy.
 - **Doctor** (header, beside Settings; also from the crash window): checks what
-  usually stops Sol JK from starting, with fixes where the launcher can make them:
-  the game folder and Jedi Academy's base packs, Sol JK installed, the *Run this
+  usually stops Sun JK from starting, with fixes where the launcher can make them:
+  the game folder and Jedi Academy's base packs, Sun JK installed, the *Run this
   program as an administrator* mark on `sjk.exe` (Windows then refuses to start it
   from the launcher with error 740; the per-user mark is removed at once, the
   all-users one through Windows' permission prompt), SJK's folder writable, the SJK
   identity, a system-wide `WGPU_BACKEND`, and the last run's log (out of video
   memory, a graphics error, or stopped right after the main menu before drawing
-  anything). It picks the graphics API for Sol JK only (*Automatic*, *Vulkan*,
+  anything). It picks the graphics API for Sun JK only (*Automatic*, *Vulkan*,
   *DirectX 12*, passed as `WGPU_BACKEND`), resets SJK's settings (`config.cfg` kept
   as `config-before-reset-<time>.cfg`), and has **Send my logs**: the launcher's
   and SJK's logs (chat left out of the launcher's, the user folder as
@@ -93,10 +93,10 @@ A small launcher for Jedi Academy that installs, updates and starts
   running one (which becomes `<name>.old`, deleted at the next start) and started;
   if anything fails the running launcher stays as it was. A launcher built from
   source (debug, or run from a cargo `target*` folder) never updates itself.
-- **Developer mode** (Settings, for SJK's developers): builds Sol JK from a source
+- **Developer mode** (Settings, for SJK's developers): builds Sun JK from a source
   checkout and plays that build, like a `play` script. The source folder is found by
   itself (`SJK_SOURCE`, beside the launcher's own source, then the usual clone places
-  such as `~/Git/SJK` or `X:\Git\SJK`) or picked by hand. Sol JK's page then shows
+  such as `~/Git/SJK` or `X:\Git\SJK`) or picked by hand. Sun JK's page then shows
   *Developer build*: pick a branch (local ones, then `origin`'s; *Fetch* updates them)
   and **Build and play** runs `cargo build --release -p sjk-viewer -p sjk-dedicated`
   and starts the client from that folder with `GameData` set. The checked-out branch

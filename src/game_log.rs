@@ -5,7 +5,7 @@
 //! folder (the run before stays as `<game>-previous.log`), so it keeps writing even
 //! if the launcher closes. When the game ends with an error code (a crash, or a
 //! start that failed before SJK's own crash reports were up), the launcher shows
-//! what happened with the last lines, and for Sol JK makes sure SJK's team gets a
+//! what happened with the last lines, and for Sun JK makes sure SJK's team gets a
 //! crash report now, not at a next start that may never work: it writes one into
 //! SJK's `crashes/` folder when the game left none (from the game's own
 //! `running-<pid>.json` marker when there is one, so it says where the player was),

@@ -67,7 +67,7 @@ pub struct Inner {
     pub open_chat: AtomicBool,
     /// The last game that went down, for the crash window.
     pub exit: Mutex<Option<crate::game_log::Exit>>,
-    /// Developer mode's build of Sol JK from source.
+    /// Developer mode's build of Sun JK from source.
     pub build: crate::dev::Build,
     /// A game that stopped answering, for the freeze window.
     pub freeze: Mutex<Option<Freeze>>,
@@ -386,7 +386,7 @@ impl Core {
     }
 
     /// End `game` from the launcher (a freeze, or the player's Stuck?): its exit then
-    /// reads as a freeze, and Sol JK's report says so.
+    /// reads as a freeze, and Sun JK's report says so.
     pub fn end(&self, game: Game) -> Result<(), String> {
         if !self.running(game) {
             return Err(format!("{} is not running", game.name()));
@@ -400,7 +400,7 @@ impl Core {
         })
     }
 
-    /// `game` (process `pid`) went down: report it for Sol JK, and show the window
+    /// `game` (process `pid`) went down: report it for Sun JK, and show the window
     /// with what happened. `sjk` is SJK's folder for the report, `None` for no report.
     fn went_down(&self, game: Game, pid: u32, what: String, ran: Duration, log: PathBuf, sjk: Option<&std::path::Path>) {
         use crate::game_log::{self, Report};

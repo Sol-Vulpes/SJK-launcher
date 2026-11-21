@@ -1,4 +1,4 @@
-//! SJK Launcher: installs and updates Sol JK and JoF EternalJK from their
+//! SJK Launcher: installs and updates Sun JK and JoF EternalJK from their
 //! GitHub releases, starts them, and fetches JoF content into SJK's JoF folder.
 //! `--minimized` starts it hidden in the tray, as the autostart entry does.
 
