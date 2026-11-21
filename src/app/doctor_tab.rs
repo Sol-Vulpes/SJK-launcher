@@ -69,7 +69,7 @@ impl App {
                 self.doctor.checks = None;
             }
         });
-        ui.label(RichText::new("What usually stops Sol JK from starting, checked on this PC, and what the launcher can fix.").color(DIM));
+        ui.label(RichText::new("What usually stops Sun JK from starting, checked on this PC, and what the launcher can fix.").color(DIM));
         ui.add_space(8.0);
         let mut fix = None;
         for check in &checks {
@@ -101,7 +101,7 @@ impl App {
         ui.add_space(8.0);
         ui.heading("Graphics");
         ui.label(
-            RichText::new("Sol JK draws with Vulkan where it can. If it stays white or black when it starts, or crashes on graphics errors, try DirectX 12. It applies at the next start.")
+            RichText::new("Sun JK draws with Vulkan where it can. If it stays white or black when it starts, or crashes on graphics errors, try DirectX 12. It applies at the next start.")
                 .color(DIM),
         );
         let mut picked = graphics;
@@ -119,7 +119,7 @@ impl App {
         theme::rule(ui);
         ui.add_space(8.0);
         ui.heading("SJK's settings");
-        ui.label(RichText::new("Start Sol JK with its default settings. Yours are kept aside as a copy, nothing is deleted; your identity and collection stay.").color(DIM));
+        ui.label(RichText::new("Start Sun JK with its default settings. Yours are kept aside as a copy, nothing is deleted; your identity and collection stay.").color(DIM));
         let running = self.core.running(Game::Sjk);
         ui.horizontal(|ui| match (&game_data, self.doctor.confirm_reset) {
             (Some(game_data), true) => {
@@ -137,7 +137,7 @@ impl App {
                 }
             }
             (Some(_), false) => {
-                if ui.add_enabled(!running, egui::Button::new("Reset SJK's settings")).on_disabled_hover_text("Close Sol JK first").clicked() {
+                if ui.add_enabled(!running, egui::Button::new("Reset SJK's settings")).on_disabled_hover_text("Close Sun JK first").clicked() {
                     self.doctor.confirm_reset = true;
                 }
             }
@@ -221,7 +221,7 @@ impl App {
                 let fixed = self.doctor.fixed.clone();
                 let ctx = self.core.ctx.clone();
                 std::thread::spawn(move || {
-                    let result = doctor::clear_run_as_admin(&exe, all_users).map(|()| "Sol JK no longer asks to run as administrator: press Play".to_owned());
+                    let result = doctor::clear_run_as_admin(&exe, all_users).map(|()| "Sun JK no longer asks to run as administrator: press Play".to_owned());
                     *fixed.lock().unwrap_or_else(|poisoned| poisoned.into_inner()) = Some(result);
                     ctx.request_repaint();
                 });

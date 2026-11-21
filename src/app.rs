@@ -71,7 +71,7 @@ pub struct App {
     chat_error: Option<String>,
     icon: Arc<egui::IconData>,
     pk3: pk3_tab::Pk3Tab,
-    /// Developer mode's branch list, read when Sol JK's page first shows it.
+    /// Developer mode's branch list, read when Sun JK's page first shows it.
     branches: crate::dev::Branches,
     branches_read: bool,
     doctor: doctor_tab::DoctorTab,
@@ -609,7 +609,7 @@ impl App {
         }
     }
 
-    /// Developer mode on Sol JK's page: a branch of the source, built and started.
+    /// Developer mode on Sun JK's page: a branch of the source, built and started.
     fn dev_block(&mut self, ui: &mut egui::Ui, s: f32) {
         use crate::dev::Phase as Build;
         let core = self.core.clone();
@@ -1677,7 +1677,7 @@ impl App {
         theme::rule(ui);
         ui.add_space(8.0);
         ui.heading("Developer");
-        if ui.checkbox(&mut config.dev_mode, "Developer mode: build Sol JK from its source and play that build").changed()
+        if ui.checkbox(&mut config.dev_mode, "Developer mode: build Sun JK from its source and play that build").changed()
             && config.dev_mode
             && config.dev_source.as_deref().is_none_or(|source| !crate::dev::is_source(source))
         {

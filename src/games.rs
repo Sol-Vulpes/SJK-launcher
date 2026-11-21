@@ -17,7 +17,7 @@ pub const GAMES: [Game; 2] = crate::brand::GAMES;
 impl Game {
     pub fn name(self) -> &'static str {
         match self {
-            Self::Sjk => "Sol JK",
+            Self::Sjk => "Sun JK",
             Self::Jof => "JoF EternalJK",
         }
     }

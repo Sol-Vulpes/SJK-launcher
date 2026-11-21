@@ -1,4 +1,4 @@
-//! Doctor: what usually stops Sol JK from starting, checked on the player's PC, the
+//! Doctor: what usually stops Sun JK from starting, checked on the player's PC, the
 //! fixes the launcher can make, and Send my logs, which sends the launcher's and SJK's
 //! logs to SJK's team unasked (hub `PROTOCOL.md`, "Log requests") when the game does
 //! not start or freezes and so never sends a crash report of its own.
@@ -37,7 +37,7 @@ pub enum Fix {
     ClearRunAsAdmin { exe: PathBuf, all_users: bool },
     /// Choose the GameData folder (Settings).
     ChooseGameData,
-    /// Install Sol JK (its page).
+    /// Install Sun JK (its page).
     Install,
 }
 
@@ -47,7 +47,7 @@ impl Fix {
             Self::ClearRunAsAdmin { all_users: false, .. } => "Remove the mark",
             Self::ClearRunAsAdmin { all_users: true, .. } => "Remove it for all users",
             Self::ChooseGameData => "Open Settings",
-            Self::Install => "Go to Sol JK",
+            Self::Install => "Go to Sun JK",
         }
     }
 }
@@ -86,10 +86,10 @@ pub fn checks(game_data: Option<&Path>, graphics: Graphics) -> Vec<Check> {
     let exe = Game::Sjk.executable_in(game_data).filter(|exe| exe.exists());
     match &exe {
         Some(exe) => {
-            checks.push(Check::new(Level::Good, "Sol JK is installed", shown(exe)));
+            checks.push(Check::new(Level::Good, "Sun JK is installed", shown(exe)));
             checks.extend(run_as_admin(exe));
         }
-        None => checks.push(Check::new(Level::Warn, "Sol JK is not installed", "Install it from its page.").with(Fix::Install)),
+        None => checks.push(Check::new(Level::Warn, "Sun JK is not installed", "Install it from its page.").with(Fix::Install)),
     }
     let sjk = game_data.join("SJK");
     checks.push(writable(&sjk));
@@ -165,10 +165,10 @@ fn graphics_check(graphics: Graphics) -> Check {
         (Graphics::Auto, Some(value)) => Check::new(
             Level::Warn,
             format!("Your system forces WGPU_BACKEND={value}"),
-            "Every program started from here gets it. Pick a graphics API below to override it for Sol JK, or remove the variable (Windows: Edit environment variables).",
+            "Every program started from here gets it. Pick a graphics API below to override it for Sun JK, or remove the variable (Windows: Edit environment variables).",
         ),
-        (Graphics::Auto, None) => Check::new(Level::Good, "Graphics: automatic", "Sol JK picks Vulkan where it can, else DirectX 12."),
-        (forced, _) => Check::new(Level::Good, format!("Graphics: {}", forced.label()), "Set below, for Sol JK only."),
+        (Graphics::Auto, None) => Check::new(Level::Good, "Graphics: automatic", "Sun JK picks Vulkan where it can, else DirectX 12."),
+        (forced, _) => Check::new(Level::Good, format!("Graphics: {}", forced.label()), "Set below, for Sun JK only."),
     }
 }
 
@@ -281,7 +281,7 @@ fn run_as_admin(exe: &Path) -> Vec<Check> {
             let all_users = hive == "HKLM";
             Check::new(
                 Level::Bad,
-                if all_users { "Sol JK is set to run as administrator for all users" } else { "Sol JK is set to run as administrator" },
+                if all_users { "Sun JK is set to run as administrator for all users" } else { "Sun JK is set to run as administrator" },
                 "Windows then refuses to start it from the launcher (error 740). The mark is the \"Run this program as an administrator\" box in sjk.exe's Properties > Compatibility.",
             )
             .with(Fix::ClearRunAsAdmin { exe: exe.to_owned(), all_users })
@@ -384,7 +384,7 @@ pub fn package(game_data: &Path, checks: &[Check], graphics: Graphics, build: &s
     let os = format!("{} {}", std::env::consts::OS, std::env::consts::ARCH);
     let gpu = gpu(&last).unwrap_or_default();
     let mut text = format!(
-        "SJK Launcher {} Doctor, sent unasked\nSol JK build: {}\nSystem: {os}\nGraphics card: {}\nGraphics API: {}\nGame folder: {}\n\nDoctor:\n",
+        "SJK Launcher {} Doctor, sent unasked\nSun JK build: {}\nSystem: {os}\nGraphics card: {}\nGraphics API: {}\nGame folder: {}\n\nDoctor:\n",
         env!("CARGO_PKG_VERSION"),
         if build.is_empty() { "unknown" } else { build },
         if gpu.is_empty() { "unknown" } else { &gpu },
@@ -559,12 +559,12 @@ mod tests {
         let _ = std::fs::remove_dir_all(&dir);
         std::fs::create_dir_all(dir.join("SJK").join("logs")).unwrap();
         std::fs::write(dir.join("SJK").join("logs").join("session.log"), "[+1 ms] client state: main menu\n").unwrap();
-        let checks = [Check::new(Level::Bad, "Sol JK is set to run as administrator", "error 740")];
+        let checks = [Check::new(Level::Bad, "Sun JK is set to run as administrator", "error 740")];
         let package = package(&dir, &checks, Graphics::Dx12, "2026.1107.1");
         let logs = &package.upload.logs;
-        assert!(logs.contains("Sol JK build: 2026.1107.1"), "{logs}");
+        assert!(logs.contains("Sun JK build: 2026.1107.1"), "{logs}");
         assert!(logs.contains("Graphics API: DirectX 12"));
-        assert!(logs.contains("[BAD ] Sol JK is set to run as administrator: error 740"));
+        assert!(logs.contains("[BAD ] Sun JK is set to run as administrator: error 740"));
         assert!(logs.contains("--- SJK's session log (logs/session.log) ---\n[+1 ms] client state: main menu"));
         let _ = std::fs::remove_dir_all(&dir);
     }

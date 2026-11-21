@@ -54,7 +54,7 @@ impl Tray {
         let menu = Menu::new();
         let open = MenuItem::new("Open launcher", true, None);
         let chat = MenuItem::new("SJK chat", true, None);
-        let play_sjk = MenuItem::new("Play Sol JK", true, None);
+        let play_sjk = MenuItem::new("Play Sun JK", true, None);
         let play_jof = MenuItem::new("Play JoF EternalJK", true, None);
         let check = MenuItem::new("Check for updates", true, None);
         let quit = MenuItem::new("Quit", true, None);

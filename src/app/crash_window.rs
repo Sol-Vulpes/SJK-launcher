@@ -8,7 +8,7 @@ use eframe::egui::{self, RichText};
 
 impl App {
     pub(super) fn crash_window(&mut self, ctx: &egui::Context) {
-        // Debug builds: SJK_LAUNCHER_CRASH=<a log file> shows the window as if Sol JK
+        // Debug builds: SJK_LAUNCHER_CRASH=<a log file> shows the window as if Sun JK
         // had gone down with that log.
         #[cfg(debug_assertions)]
         if let Ok(log) = std::env::var("SJK_LAUNCHER_CRASH")

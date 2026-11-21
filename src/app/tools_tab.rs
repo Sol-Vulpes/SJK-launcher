@@ -12,7 +12,7 @@ impl App {
         let game_data = self.core.game_data();
         ui.add_space(8.0);
         ui.heading("Folders");
-        ui.label(RichText::new("Where Sol JK keeps its things. A greyed one does not exist yet (nothing saved there so far).").color(DIM));
+        ui.label(RichText::new("Where Sun JK keeps its things. A greyed one does not exist yet (nothing saved there so far).").color(DIM));
         ui.add_space(4.0);
         places(ui, "tools-folders", &tools::folders(game_data.as_deref()), system::open);
 

@@ -1,4 +1,4 @@
-//! Developer mode (Settings): build Sol JK from a source checkout and start that
+//! Developer mode (Settings): build Sun JK from a source checkout and start that
 //! build, as SJK's developers do with their own build scripts.
 //!
 //! The source folder is a clone of SJK (it holds `crates/sjk-viewer`). Its own
