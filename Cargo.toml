@@ -3,10 +3,11 @@ members = [".", "sith-cloud"]
 
 [package]
 name = "sjk-launcher"
-version = "0.4.4"
+version = "0.4.5"
 edition = "2024"
 license = "GPL-2.0-only"
 description = "Installs, updates and starts SJK and JoF EternalJK, and fetches JoF content"
+build = "build.rs"
 
 [features]
 # The JoF Launcher: the same launcher in the JoF clan's logo and colours (src/brand.rs).
@@ -34,6 +35,10 @@ tar = "0.4"
 directories = "6"
 raw-window-handle = "0.6"
 image = { version = "0.25", default-features = false, features = ["png"] }
+
+[build-dependencies]
+# Puts the brand's icon into the Windows exe (build.rs).
+winresource = "0.1"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 gtk = "0.18"
