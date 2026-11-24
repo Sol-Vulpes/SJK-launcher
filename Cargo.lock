@@ -3546,7 +3546,7 @@ dependencies = [
 [[package]]
 name = "sjk-model"
 version = "0.1.0"
-source = "git+https://github.com/Sol-Vulpes/SJK?rev=c2191ef16f47c6e0b1207a4e06563ca8279f250a#c2191ef16f47c6e0b1207a4e06563ca8279f250a"
+source = "git+https://github.com/Sol-Vulpes/SJK?rev=de6a954c285ac8e0f283c053354b30998f54a004#de6a954c285ac8e0f283c053354b30998f54a004"
 dependencies = [
  "serde_json",
 ]
@@ -3554,7 +3554,7 @@ dependencies = [
 [[package]]
 name = "sjk-model-sync"
 version = "0.1.0"
-source = "git+https://github.com/Sol-Vulpes/SJK?rev=c2191ef16f47c6e0b1207a4e06563ca8279f250a#c2191ef16f47c6e0b1207a4e06563ca8279f250a"
+source = "git+https://github.com/Sol-Vulpes/SJK?rev=de6a954c285ac8e0f283c053354b30998f54a004#de6a954c285ac8e0f283c053354b30998f54a004"
 dependencies = [
  "md-5",
  "sjk-model",
